@@ -1,0 +1,8 @@
+---
+# Diagnostics:
+#   Suppress:
+    # - pp_file_not_found_angled_include_not_fatal
+    # - pp_file_not_found
+    # - unused-includes
+CompileFlags:
+  Add: ["-Wall", "-Wextra", "-I/usr/arm-none-eabi/include"]

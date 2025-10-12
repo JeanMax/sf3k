@@ -1,91 +1,78 @@
-# Raspberry Pi Pico FreeRTOS Starter
+# SuperFreezer3000
 
-## Purpose
 
-The purpose of this project is to provide a somewhat turn-key starter project
-for using FreeRTOS on Raspberry Pi Pico boards.
+A STC-1000 like on a Raspbeery Pico
 
-## Board Support
+# TODO
 
-This project should work out-of-the-box for the following boards.
 
-- Raspberry Pi Pico
-- Raspberry Pi Pico W
-- Raspberry Pi Pico 2
-- Raspberry Pi Pico 2W
 
-This project should also work with other boards using RP2040 or RP2350
-microcontrollers but may require more advanced changes. For example, boards
-with extended external RAM may need to link with the `FreeRTOS-Kernel-Heap5`
-library for the memory scheme and properly initialize it. For more information
-about the built-in memory models for FreeRTOS, see [Chapter 3 of the FreeRTOS
-Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book/blob/main/ch03.md)
 
-## Project Setup
 
-> [!NOTE]
-> This project supports the Pico SDK VS Code extension. If you use VS Code as
-> your IDE, you can install the Pico SDK extension and ththe setup process is
-> done for you.
+    |          |         | [USB] |         |          |
+    | I2C0 SDA |   GP0   |1    40| VBUS    |          |
+    | I2C0 SCL |   GP1   |2    39| VSYS    |          |
+    |          |    GND1 |3    38| GND8    |          |
+    |          |   GP2   |4    37| 3V3_EN  |          |
+    |          |   GP3   |5    36| 3V3 OUT |          |
+    |          |   GP4   |6    35|         |          |
+    |          |   GP5   |7    34|  GP28   |          |
+    |          |    GND2 |8    33| GND7    |          |
+    |          |   GP6   |9    32|  GP27   |          |
+    |          |   GP7   |10   31|  GP26   |          |
+    |          |   GP8   |11   30| RUN     |          |
+    |          |   GP9   |12   29|  GP22   |          |
+    |          |    GND3 |13   28| GND6    |          |
+    |          |   GP10  |14   27|  GP21   |          |
+    |          |   GP11  |15   26|  GP20   |          |
+    |          |   GP12  |16   25|  GP19   | SPI0 TX  |
+    |          |   GP13  |17   24|  GP18   | SPI0 SCK |
+    |          |    GND4 |18   23| GND5    |          |
+    |          |   GP14  |19   22|  GP17   | SPI0 CSn |
+    |          |   GP15  |20   21|  GP16   | SPI0 RX  |
 
-### Requirements
 
-1. CMake 3.20 or later
-2. Raspberry Pi Pico C SDK
+* components:
+  * pico (Raspberry Pi Pico 2 W - RP2350)
+  * temp - resistor type K
+    * MAX 6675
+  * relay (x2) - ENMG solid state relay PG5A2032
+  * screen - NFP1315-45AY
+  * buttons - x5 combo
 
-> [!IMPORTANT]
-> The project assumes the Pico SDK is installed in your home directory and in a
-> folder named `.pico-sdk`. I.e., `/Users/dev/.pico-sdk/`
 
-### Building
+* thermo-MAX (SPI):
+  * VCC
+  * GND [38]
+  * SCK [24]
+  * CS  [22]
+  * SO  [21]
 
-1. Clone the project on to your system
+* screen (I2C):
+  * VCC
+  * GND [3]
+  * SCL [2]
+  * SDA [1]
 
-2.Within the project root, update the submodules to clone the FreeRTOS kernel
+* buttons: (GPIO)
+  * VCC
+  * IN1 [15]
+  * IN2 [16]
+  * IN3 [17]
+  * IN4 [19]
+  * IN5 [20]
 
-```shell
-$ git submodule update --init FreeRTOS
-```
+* relays: (GPIO)
+  * VCC
+  * GND [28]
+  * IN1 [29]
+  * IN2 [27]
 
-3. Within the project root, use CMake to generate the build scripts
 
-```shell
-$ cmake -B ./build
-```
-
-> {!IMPORTANT}
-> On Windows, use the Ninja generator from CMake.
-> `cmake -B ./build -G Ninja`
-
-4. Build the project
-
-```shell
-$ cmake --build ./build
-```
-
-The built programs are in the `build` directory. You can install the UF2 file
-by copying it to the Pico's mass storage drive which is available when you hold
-the boot button on the pico while plugging it in to your computer. You can
-also use picotool to install the elf binary directly to the pico using SWD
-with the Raspberry Pi Debug Probe.
-
-## Other Notes
-
-- By default, the project is set up to build for the pico2 with the RP2350 in ARM
-mode. You can modify the `CMakeLists.txt` file to change the board and platform
-for your needs.
-
-- The simplest way to customize the build is to use the VS Code extension for the
-Pico SDK. The extension provides an interface to quickly reconfigure CMake for
-different boards.
-
-- The project uses the forked version of the FreeRTOS Kernel provided by
-Raspberry Pi. This fork provides a port for the RP2350 which seems to be
-absent from the mainline kernel. Unfortunately, this fork does not keep track
-of the versions in the mainline repository. If you would like to use the
-mainline repository you will need to port ityourself for the RP2350.
-
-## See Also
-
-Check out the [FreeRTOS Kernel Book](https://github.com/FreeRTOS/FreeRTOS-Kernel-Book/blob/main/toc.md)
-to learn more about FreeRTOS and waht it offers.
+* software features:
+  * config target temp
+  * toggle relays based on temp + config
+  * display:
+    * current temp
+    * target temp
+    * relays state

@@ -1,0 +1,20 @@
+---
+# We'll use defaults from the LLVM style, but with 4 columns indentation.
+BasedOnStyle: LLVM
+Language: C
+IndentWidth: 4
+ReflowComments: false
+AlignTrailingComments: Leave
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseExpressionOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+BinPackParameters: BinPack
+BreakBeforeBinaryOperators: NonAssignment
+BreakStringLiterals: false
+# ColumnLimit: 100
+MaxEmptyLinesToKeep: 2

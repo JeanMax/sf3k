@@ -21,7 +21,10 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
+set(PICO_PLATFORM rp2350 CACHE STRING "Board name")
+set(WIFI_SSID Linternet CACHE STRING "Wifi SSID")
+set(WIFI_PASSWORD internet974 CACHE STRING "Wifi PASS")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -38,8 +41,10 @@ target_compile_definitions(freertos_config INTERFACE projCOVERAGE_TEST=0)
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS)
 include(FreeRTOS_Kernel_Import.cmake)
 
-add_executable(sf3k
-    main.c)
+file(GLOB src "src/*.c")
+add_executable(sf3k ${src})
+target_compile_options(sf3k PRIVATE "-Wall" "-Wextra")
+target_link_options(sf3k PRIVATE "-Wall" "-Wextra")
 
 pico_set_program_name(sf3k "sf3k")
 pico_set_program_version(sf3k "0.1")
@@ -53,6 +58,8 @@ target_include_directories(sf3k PRIVATE
 
 target_link_libraries(sf3k
     pico_stdlib
+    pico_cyw43_arch_none
+    hardware_spi
     hardware_timer
     pico_unique_id
     pico_multicore
