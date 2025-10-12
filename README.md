@@ -55,7 +55,7 @@ A STC-1000 like on a Raspbeery Pico
   * SDA [1]
 
 * buttons: (GPIO)
-  * VCC
+  * GND [3]
   * IN1 [15]
   * IN2 [16]
   * IN3 [17]

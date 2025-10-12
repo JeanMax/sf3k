@@ -1,7 +1,17 @@
 #ifndef _LOG_H
 #define _LOG_H
 
+#include <FreeRTOS.h>
+#include <semphr.h>
 #include <stdio.h>
+
+extern SemaphoreHandle_t g_log_lock;
+
+#define WITH_LOCK(something) do {                   \
+        xSemaphoreTake(g_log_lock, portMAX_DELAY);  \
+        something;                                  \
+        xSemaphoreGive(g_log_lock);                 \
+    } while (0)
 
 #ifdef NO_COLORS
 # define CLR_BLACK ""
@@ -29,23 +39,24 @@
 //TODO: ISO C99 requires at least one argument for the ‘...’ in a variadic macro
 #ifdef NDEBUG
 # define LOG_INFO(str, ...)                                             \
-    fprintf(stdout, CLR_BLUE "[INFO]: " CLR_RESET str "\n", ##__VA_ARGS__)
+    WITH_LOCK( fprintf(stdout, CLR_BLUE "[INFO]: " CLR_RESET str "\n", ##__VA_ARGS__) )
 # define LOG_DEBUG(str, ...)                                            \
-    fprintf(stderr, CLR_MAGENTA "[DEBUG]: " CLR_RESET str "\n", ##__VA_ARGS__)
+    WITH_LOCK( fprintf(stderr, CLR_MAGENTA "[DEBUG]: " CLR_RESET str "\n", ##__VA_ARGS__) )
 # define LOG_WARNING(str, ...)                                          \
-    fprintf(stderr, CLR_YELLOW "[WARNING]: " CLR_RESET str "\n", ##__VA_ARGS__)
+    WITH_LOCK( fprintf(stderr, CLR_YELLOW "[WARNING]: " CLR_RESET str "\n", ##__VA_ARGS__) )
 #else
-# define LOG_INFO(str, ...) fprintf(stdout, str "\n", ##__VA_ARGS__)
+# define LOG_INFO(str, ...) WITH_LOCK( fprintf(stdout, str "\n", ##__VA_ARGS__) )
 # define LOG_DEBUG(str, ...) do {} while (0)
 # define LOG_WARNING(str, ...) do {} while (0)
 #endif
 #define LOG_ERROR(str, ...)                                             \
-    fprintf(stderr, CLR_RED "[ERROR]: " CLR_RESET str "\n", ##__VA_ARGS__)
+    WITH_LOCK( fprintf(stderr, CLR_RED "[ERROR]: " CLR_RESET str "\n", ##__VA_ARGS__) )
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #define AT CLR_WHITE __FILE__ ":" TOSTRING(__LINE__) CLR_RESET
 
 
+void init_log_mutex(void);
 
 #endif
