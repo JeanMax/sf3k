@@ -41,10 +41,10 @@ target_compile_definitions(freertos_config INTERFACE projCOVERAGE_TEST=0)
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS)
 include(FreeRTOS_Kernel_Import.cmake)
 
-file(GLOB src "src/*.c")
+file(GLOB src "src/*.c" "src/*/*.c")
 add_executable(sf3k ${src})
-target_compile_options(sf3k PRIVATE "-Wall" "-Wextra")
-target_link_options(sf3k PRIVATE "-Wall" "-Wextra")
+target_compile_options(sf3k PRIVATE "-Wall" "-Wextra" "-I${PROJECT_SOURCE_DIR}/include/driver")
+target_link_options(sf3k PRIVATE "-Wall" "-Wextra" "-I${PROJECT_SOURCE_DIR}/include/driver")
 
 pico_set_program_name(sf3k "sf3k")
 pico_set_program_version(sf3k "0.1")
