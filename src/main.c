@@ -6,14 +6,15 @@
 #include "led.h"
 #include "max6675.h"
 #include "button.h"
-#include "ss_oled.h"
+#include "screen.h"
 
 
-#define DEFAULT_TASK_PRIORITY  2
+volatile float g_temp = 0;
+
 
 static void thermo_task(void *data) {
     (void)data;
-
+    vTaskDelay(pdMS_TO_TICKS(2000)); // wait for usb
 
     t_max6675_conf conf = {
         .spi_bus = THERMO_SPI_BUS,
@@ -25,17 +26,18 @@ static void thermo_task(void *data) {
 
     max6675_init(&conf);
 
-    vTaskDelay(pdMS_TO_TICKS(1000)); // wait for usb
-    max6675_get_temp(&conf);  // first read is always 0?
-    vTaskDelay(pdMS_TO_TICKS(1000)); // wait for usb
+    while (g_temp < 1) {
+        g_temp = max6675_get_temp(&conf);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
     LOG_INFO("thermo task started");
 
 
     while (42) {
-        float temp = max6675_get_temp(&conf);
-        LOG_INFO("Temp: %.2f°C", temp);
-        vTaskDelay(pdMS_TO_TICKS(1000)); // wait for usb
+        g_temp = max6675_get_temp(&conf);
+        LOG_INFO("Temp: %.2f°C", g_temp);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
     // Do not let a task procedure return
@@ -92,80 +94,30 @@ static void led_task(void *data) {
 static void screen_task(void *data) {
     (void)data;
 
-    vTaskDelay(pdMS_TO_TICKS(3000));
     LOG_INFO("screen task started");
 
-    bool bInvert = 0;
-    int32_t iSpeed = 400 * 1000; // 100 * 1000
-#define PICO_I2C i2c0  // i2c_default
-/* #define OLED_WIDTH 128 */
-/* #define OLED_HEIGHT 64 */
+    init_screen(pin2gpio(SCREEN_SCL_PIN), pin2gpio(SCREEN_SDA_PIN));
 
-    static uint8_t ucBuffer[1024] = {0};
-    SSOLED oled = {
-        .oled_addr = 0x3c,
-        /* .oled_wrap = 0, // ? */
-        .oled_flip = 0,
-        .oled_type = OLED_128x64,
-        /* uint8_t *ucScreen; */
-        /* uint8_t iCursorX, iCursorY; */
-        /* uint8_t oled_x, oled_y; */
-        /* int iScreenOffset; */
-        .bbi2c.iSCL = pin2gpio(SCREEN_SCL_PIN),
-        .bbi2c.iSDA = pin2gpio(SCREEN_SDA_PIN),
-        .bbi2c.picoI2C = PICO_I2C,
-    };
+    display_string(" *SF3K*", 0, 0, 0);
+    display_string("blabla", 1, 0, 0);
+    display_string("lorem i", 2, 0, 1);
+    display_string("sum truc ", 3, 0, 0);
 
-    int ret = __oledInit(&oled, bInvert, iSpeed);
-    __oledSetBackBuffer(&oled, ucBuffer);
-    LOG_DEBUG("oled init: %d", ret);
+    vTaskDelay(pdMS_TO_TICKS(2000));  // wait for usb
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    __oledFill(&oled, 0, 1);
-    __oledSetContrast(&oled, 127);
-
-    /* ret = __oledWriteString(&oled, 0,0,0,(char *)"**************** ", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,4,1,(char *)"Pi Pico SS_OLED", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,8,2,(char *)"running on the", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,8,3,(char *)"SSD1306 128x64", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,4,4,(char *)"monochrome OLED", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,0,5,(char *)"Written by L BANK", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,4,6,(char *)"Pico by M KOOIJ", FONT_8x8, 0, 1); */
-    /* ret = __oledWriteString(&oled, 0,0,7,(char *)"**************** ", FONT_8x8, 0, 1); */
-    /* vTaskDelay(pdMS_TO_TICKS(2000)); */
-
-    __oledFill(&oled, 0, 1);
-    ret = __oledWriteString(&oled,0,0,0,(char *)"Now with 5 font sizes", FONT_6x8, 0, 1);
-    ret = __oledWriteString(&oled,0,0,1,(char *)"6x8 8x8 16x16", FONT_8x8, 0, 1);
-    ret = __oledWriteString(&oled,0,0,2,(char *)"16x32 and a new", FONT_8x8, 0, 1);
-    ret = __oledWriteString(&oled,0,0,3,(char *)"Stretched", FONT_12x16, 0, 1);
-    ret = __oledWriteString(&oled,0,0,5,(char *)"from 6x8", FONT_12x16, 0, 1);
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    __oledFill(&oled, 0, 1);
-    ret = __oledWriteString(&oled,0,0,0,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-    ret = __oledWriteString(&oled,0,0,2,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-    ret = __oledWriteString(&oled,0,0,4,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-    ret = __oledWriteString(&oled,0,0,6,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-
-
-    __oledFill(&oled, 0, 1);
-    ret = __oledWriteString(&oled,0,0,0,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-    ret = __oledWriteString(&oled,0,0,2,(char *)"12345678", FONT_16x16, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-    ret = __oledWriteString(&oled,0,0,4,(char *)"12345678", FONT_16x32, 0, 1);
-    LOG_DEBUG("oled write string: %d", ret);
-
+    char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
+    snprintf(temp_str, 8, "> %.1f <", g_temp);
+    clear_screen(); // careful: flickering
+    /* display_string(" *SF3K*", 0, 0, 0); */
+    display_string(SCREEN_HOT_CHAR " SF3K " SCREEN_COLD_CHAR, 0, 0, 0);
+    display_string(temp_str, 1, 1, 0);
+    display_string("goal: 36", 3, 0, 0);
 
     while (42) {
+        snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, "> %.1f <", g_temp);
+        display_string(temp_str, 1, 1, 0);
+
         vTaskDelay(pdMS_TO_TICKS(1000));
-        /* LOG_DEBUG("screen loop"); */
     }
 
     // Do not let a task procedure return
