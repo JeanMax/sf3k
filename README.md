@@ -37,7 +37,7 @@ A STC-1000 like on a Raspbeery Pico
   * temp - resistor type K
     * MAX 6675
   * relay (x2) - ENMG solid state relay PG5A2032
-  * screen - NFP1315-45AY
+  * screen - NFP1315-45AY (128x64)
   * buttons - x5 combo
 
 
