@@ -43,8 +43,10 @@ include(FreeRTOS_Kernel_Import.cmake)
 
 file(GLOB src "src/*.c" "src/*/*.c")
 add_executable(sf3k ${src})
-target_compile_options(sf3k PRIVATE "-Wall" "-Wextra" "-I${PROJECT_SOURCE_DIR}/include/driver")
-target_link_options(sf3k PRIVATE "-Wall" "-Wextra" "-I${PROJECT_SOURCE_DIR}/include/driver")
+target_compile_options(sf3k PRIVATE "-Wall" "-Wextra")
+target_link_options(sf3k PRIVATE "-Wall" "-Wextra")
+
+pico_set_linker_script(sf3k ${CMAKE_SOURCE_DIR}/ld/memmap_custom.ld)
 
 pico_set_program_name(sf3k "sf3k")
 pico_set_program_version(sf3k "0.1")
@@ -54,7 +56,8 @@ pico_enable_stdio_usb(sf3k 1)
 
 target_include_directories(sf3k PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
-    ${CMAKE_SOURCE_DIR}/include)
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/driver)
 
 target_link_libraries(sf3k
     pico_stdlib
@@ -62,6 +65,8 @@ target_link_libraries(sf3k
     hardware_spi
     hardware_i2c
     hardware_timer
+    hardware_flash
+    hardware_sync
     pico_unique_id
     pico_multicore
     FreeRTOS-Kernel

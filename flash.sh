@@ -3,12 +3,12 @@
 set -e
 
 BUILD_DIR=./build
-TO_FLASH=$(find $BUILD_DIR -name '*.uf2')
+TO_FLASH=$(find $BUILD_DIR -maxdepth 1 -name '*.uf2')
 
 
 if ! test -e "$TO_FLASH"; then
     ./build.sh
-    TO_FLASH=$(find $BUILD_DIR -name '*.uf2')
+    TO_FLASH=$(find $BUILD_DIR -maxdepth 1 -name '*.uf2')
 fi
 
 # Check if pico is here
@@ -16,18 +16,8 @@ PICO_INFO=$(sudo picotool info -a || true)
 
 if grep -q 'appears to have a USB serial connection' <<< "$PICO_INFO"; then
     # need to reboot to BOOTSEL
-
-    echo "Hold the BOOTSEL button, the pi will be reboot in 3 seconds..."
+    sudo picotool reboot -f -u
     sleep 1
-    echo "2 seconds"
-    sleep 1
-    echo "1 seconds"
-    sleep 1
-    echo "Now!"
-
-    sudo picotool reboot -f
-
-    sleep 2
     PICO_INFO=$(sudo picotool info -a || true)
 fi
 
@@ -40,9 +30,7 @@ fi
 
 
 # Flash the uf2 file
-sudo picotool load "$TO_FLASH"
-sync
-
+sudo picotool load --update "$TO_FLASH"
 
 # Manual way:
 # sudo mount /dev/sdb1 /mnt

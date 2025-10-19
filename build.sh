@@ -21,7 +21,7 @@ test "$CLEAN" && rm -rf $BUILD_DIR
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # Within the project root, use CMake to generate the build scripts
-test -d $BUILD_DIR || cmake -B $BUILD_DIR
+test -d $BUILD_DIR || cmake $(test "$RELEASE" || echo -DCMAKE_BUILD_TYPE=Debug) -B $BUILD_DIR
 
 # Build the project
 cmake --build $BUILD_DIR -j

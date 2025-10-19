@@ -9,11 +9,12 @@
 #include "menu.h"
 #include "screen.h"
 #include "shared.h"
+#include "persist.h"
 
 
 //TODO: move these
 volatile float shared__current_temp = 0;
-volatile int shared__goal_temp = 0;  //TODO: load from flash
+volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 
 
@@ -30,8 +31,10 @@ static int wait_for_usb(int timeout_ms) {
 
 static void thermo_task(void *data) {
     (void)data;
+    vTaskCoreAffinitySet(NULL, 1 | 2);
     wait_for_usb(3000);
-    LOG_INFO("thermo task started");
+    LOG_INFO("thermo task started (core: %d - aff: %lu)",
+             portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
     t_max6675_conf conf = {
         .spi_bus = THERMO_SPI_BUS,
@@ -56,8 +59,10 @@ static void thermo_task(void *data) {
 
 static void menu_task(void *data) {
     (void)data;
+    vTaskCoreAffinitySet(NULL, 1);
     wait_for_usb(3000);
-    LOG_INFO("menu task started");
+    LOG_INFO("menu task started (core: %d - aff: %lu)",
+             portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
     init_screen(SCREEN_SCL_GPIO,
                 SCREEN_SDA_GPIO,
@@ -82,6 +87,7 @@ static void menu_task(void *data) {
 
 static void led_task(void *data) {
     (void)data;
+    vTaskCoreAffinitySet(NULL, 1 | 2);
 
     if (init_led()) {
         panic("Wi-Fi init failed");
@@ -89,7 +95,8 @@ static void led_task(void *data) {
     led(true);
 
     wait_for_usb(3000);
-    LOG_INFO("led task started");
+    LOG_INFO("led task started (core: %d - aff: %lu)",
+             portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
     while (42) {
         led(false);
@@ -106,22 +113,22 @@ static void led_task(void *data) {
 int main() {
     stdio_init_all();
     init_log_mutex();
+    restore_goal_temp();
 
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
-                                                configMAX_PRIORITIES - 1, NULL);
+                                                3, NULL);
     BaseType_t menu_task_status = xTaskCreate(menu_task, "menu_task",
                                               configMINIMAL_STACK_SIZE, NULL,
-                                              configMAX_PRIORITIES - 2, NULL);
+                                              2, NULL);
     BaseType_t led_task_status = xTaskCreate(led_task, "led_task",
                                              configMINIMAL_STACK_SIZE, NULL,
-                                             configMAX_PRIORITIES - 3, NULL);
+                                             1, NULL);
 
-
-    if (thermo_task_status == pdPASS
+    if (
+        thermo_task_status == pdPASS
         && menu_task_status == pdPASS
         && led_task_status == pdPASS) {
-        /* queue = xQueueCreate(4, sizeof(uint8_t)); */
 
         vTaskStartScheduler();
         // blocking

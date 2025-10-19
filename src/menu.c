@@ -1,19 +1,19 @@
 #include "menu.h"
 
-#include "screen.h"
-#include "shared.h"
-#include "PinConfig.h"
-
 #include <hardware/gpio.h>
 #include <FreeRTOS.h>
 #include <task.h>
 
+#include "screen.h"
+#include "shared.h"
+#include "PinConfig.h"
 #include "log.h"
+#include "persist.h"
 
 
-e_location g_loc = BASE;
-
-int g_tmp_goal_temp = 0;
+volatile e_location g_loc = BASE;
+volatile int g_need_save = 0;
+volatile int g_tmp_goal_temp = 0;
 
 #define MAX_MENU_ENTRIES 5
 char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX] =  {
@@ -30,7 +30,7 @@ t_menu_callback *g_menu_fun[MAX_MENU_ENTRIES] =  {
     _todo,
     _todo,
 };
-int g_current_entry = 0;
+volatile int g_current_entry = 0;
 
 #define CIRCULAR_INDEX(idx)                         \
     (((idx) + MAX_MENU_ENTRIES) % MAX_MENU_ENTRIES)
@@ -74,6 +74,11 @@ static int menu_ok() {
 
 int menu_refresh() {
     if (g_loc == BASE) {
+        if (g_need_save) {
+            LOG_INFO("Saving goal");
+            save_goal_temp();
+            g_need_save = 0;
+        }
         return refresh_base_current_temp();
     }
     return 0;
@@ -97,7 +102,7 @@ static int goal_dec() {
 
 static int goal_ok() {
     shared__goal_temp = g_tmp_goal_temp;
-    //TODO: persist goal to flash memory
+    g_need_save = 1;
     return switch_to_base();
 }
 
@@ -185,7 +190,7 @@ static void on_ok() {
 
 static void gpio_callback(uint pin, uint32_t events) {
     (void)events;
-    static TickType_t tick = 0;
+    static volatile TickType_t tick = 0;
     TickType_t tack = xTaskGetTickCountFromISR();
 
     if (tack - tick < DEBOUNCE_TICK_DELAY) {

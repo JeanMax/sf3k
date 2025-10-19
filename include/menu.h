@@ -1,9 +1,9 @@
-#ifndef _BUTTON_H
-#define _BUTTON_H
+#ifndef _MENU_H
+#define _MENU_H
 
 #include <stdint.h>
 
-#define DEBOUNCE_TICK_DELAY 420
+#define DEBOUNCE_TICK_DELAY 250
 
 typedef enum location e_location;
 enum location {
