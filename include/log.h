@@ -36,7 +36,6 @@ extern SemaphoreHandle_t g_log_lock;
 #endif
 
 
-//TODO: ISO C99 requires at least one argument for the ‘...’ in a variadic macro
 #ifdef NDEBUG
 # define LOG_INFO(str, ...)                                             \
     WITH_LOCK( fprintf(stdout, CLR_BLUE "[INFO]: " CLR_RESET str "\n", ##__VA_ARGS__) )
