@@ -1,6 +1,7 @@
 #include "menu.h"
 
 #include <hardware/gpio.h>
+#include <pico/bootrom.h>
 #include <FreeRTOS.h>
 #include <task.h>
 
@@ -18,15 +19,15 @@ volatile int g_tmp_goal_temp = 0;
 #define MAX_MENU_ENTRIES 5
 char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX] =  {
     "Set goal",
-    "Somethin",
-    "Bla bla ",
+    "Reboot  ",
+    "BootSel ",
     " Lorem  ",
     "  Ipsum ",
 };
 t_menu_callback *g_menu_fun[MAX_MENU_ENTRIES] =  {
     _switch_to_set_goal,
-    _todo,
-    _todo,
+    _reboot,
+    _reboot_to_bootsel,
     _todo,
     _todo,
 };
@@ -39,6 +40,20 @@ volatile int g_current_entry = 0;
 
 
 int _todo() {
+    return 0;
+}
+
+
+int _reboot() {
+    LOG_INFO("Waiting to be rebooted by watchdog");
+    clear_screen();
+    while(42) {}
+    return 0;
+}
+
+int _reboot_to_bootsel() {
+    clear_screen();
+    reset_usb_boot(0, 0);
     return 0;
 }
 
@@ -190,7 +205,7 @@ static void on_ok() {
 
 static void gpio_callback(uint pin, uint32_t events) {
     (void)events;
-    static volatile TickType_t tick = 0;
+    static TickType_t tick = 0;
     TickType_t tack = xTaskGetTickCountFromISR();
 
     if (tack - tick < DEBOUNCE_TICK_DELAY) {
@@ -235,6 +250,8 @@ void init_menu(uint8_t pin_up, uint8_t pin_down,
                uint8_t pin_ok) {
     switch_to_base();
 
+    //TODO: could remove the pins from params since they are
+    //      hardcoded in the callback anyway
     init_button(pin_up);
     init_button(pin_down);
     init_button(pin_left);

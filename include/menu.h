@@ -21,6 +21,8 @@ void init_menu(uint8_t pin_up, uint8_t pin_down,
 int menu_refresh(void);
 
 int _switch_to_set_goal(void);
+int _reboot(void);
+int _reboot_to_bootsel(void);
 int _todo(void);
 
 #endif

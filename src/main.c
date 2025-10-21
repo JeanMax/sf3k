@@ -1,6 +1,7 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #include <tusb.h>
+#include <hardware/watchdog.h>
 
 #include "PinConfig.h"
 #include "log.h"
@@ -11,6 +12,12 @@
 #include "shared.h"
 #include "persist.h"
 
+#ifdef NDEBUG
+# define WATCHDOG_STOP_ON_DEBUG 0
+#else
+# define WATCHDOG_STOP_ON_DEBUG 1
+#endif
+#define WATCHDOG_DELAY_MS 1000
 
 //TODO: move these
 volatile float shared__current_temp = 0;
@@ -98,11 +105,18 @@ static void led_task(void *data) {
     LOG_INFO("led task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
+    if (watchdog_enable_caused_reboot()) {
+        LOG_ERROR("Rebooted by Watchdog!");
+    }
+    watchdog_enable(WATCHDOG_DELAY_MS, WATCHDOG_STOP_ON_DEBUG);
+
     while (42) {
         led(false);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
+        watchdog_update();
         led(true);
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
+        watchdog_update();
     }
 
     // Do not let a task procedure return
