@@ -6,9 +6,9 @@
 
 extern void *ADDR_PERSISTENT;
 
+
+//TODO: make these more flexible
 #define GOAL_TEMP_FLASH_ADDR ((uint)&ADDR_PERSISTENT - XIP_BASE)
-
-
 void save_goal_temp(void);
 void restore_goal_temp(void);
 

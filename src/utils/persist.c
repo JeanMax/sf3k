@@ -3,8 +3,8 @@
 #include "log.h"
 #include "shared.h"
 
-#include <string.h>
 #include <hardware/flash.h>
+#include <string.h>
 
 
 inline static size_t align_page(size_t i) {

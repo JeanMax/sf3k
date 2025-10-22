@@ -1,8 +1,9 @@
 #include "screen.h"
 
-#include "shared.h"
-#include "ss_oled.h"
 #include <stdio.h>
+
+#include "shared.h"
+#include "driver/ss_oled.h"
 
 
 static SSOLED g_oled = {

@@ -1,7 +1,7 @@
 #ifndef _SHARED_H
 #define _SHARED_H
 
-
+//TODO: move
 typedef enum state e_state;
 enum state {
     WAIT = 0,

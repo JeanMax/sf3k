@@ -57,7 +57,7 @@ pico_enable_stdio_usb(sf3k 1)
 target_include_directories(sf3k PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include/driver)
+    ${CMAKE_SOURCE_DIR}/src)  # TODO: add some global include?
 
 target_link_libraries(sf3k
     pico_stdlib

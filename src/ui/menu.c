@@ -1,21 +1,22 @@
 #include "menu.h"
 
+#include <FreeRTOS.h>
 #include <hardware/gpio.h>
 #include <pico/bootrom.h>
-#include <FreeRTOS.h>
 #include <task.h>
 
+#include "PinConfig.h"
 #include "screen.h"
 #include "shared.h"
-#include "PinConfig.h"
-#include "log.h"
-#include "persist.h"
+#include "utils/log.h"
+#include "utils/persist.h"
 
 
 volatile e_location g_loc = BASE;
 volatile int g_need_save = 0;
 volatile int g_tmp_goal_temp = 0;
 
+//TODO: pass these as parameters, store them... good luck with callbacks
 #define MAX_MENU_ENTRIES 5
 char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX] =  {
     "Set goal",

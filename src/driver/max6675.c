@@ -1,6 +1,6 @@
 #include "max6675.h"
-#include "log.h"
 
+#include "utils/log.h"
 
 
 void max6675_init(const t_max6675_conf *conf) {

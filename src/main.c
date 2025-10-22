@@ -1,16 +1,16 @@
 #include <FreeRTOS.h>
+#include <hardware/watchdog.h>
 #include <task.h>
 #include <tusb.h>
-#include <hardware/watchdog.h>
 
 #include "PinConfig.h"
-#include "log.h"
-#include "led.h"
-#include "max6675.h"
-#include "menu.h"
-#include "screen.h"
+#include "driver/led.h"
+#include "driver/max6675.h"
 #include "shared.h"
-#include "persist.h"
+#include "ui/menu.h"
+#include "ui/screen.h"
+#include "utils/log.h"
+#include "utils/persist.h"
 
 #ifdef NDEBUG
 # define WATCHDOG_STOP_ON_DEBUG 0
