@@ -2,7 +2,16 @@
 
 set -e
 
-BUILD_DIR=./build
+# Default to debug build
+if test "$RELEASE"; then
+    REL=Release
+else
+    REL=Debug
+fi
+
+BUILD_ROOT=./build
+BUILD_DIR=$BUILD_ROOT/$REL
+
 TO_FLASH=$(find $BUILD_DIR -maxdepth 1 -name '*.uf2')
 
 
