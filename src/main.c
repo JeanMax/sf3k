@@ -6,11 +6,16 @@
 #include "PinConfig.h"
 #include "driver/led.h"
 #include "driver/max6675.h"
+#include "driver/relay.h"
 #include "shared.h"
 #include "ui/menu.h"
 #include "ui/screen.h"
 #include "utils/log.h"
 #include "utils/persist.h"
+#include "temp_ctrl/hysteresis.h"
+
+
+#define REFRESH_DELAY_MS 1000
 
 #ifdef NDEBUG
 # define WATCHDOG_STOP_ON_DEBUG 0
@@ -25,7 +30,12 @@ volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 
 
+#define USB_DEFAULT_TIMEOUT_MS 3000
+
 static int wait_for_usb(int timeout_ms) {
+#ifdef NDEBUG
+    return 0;
+#endif
     uint sleep_inc = 100;
     for (int i = 0; i < timeout_ms; i += sleep_inc) {
         if (tud_cdc_connected()) {
@@ -36,10 +46,11 @@ static int wait_for_usb(int timeout_ms) {
     return -1;
 }
 
+
 static void thermo_task(void *data) {
     (void)data;
     vTaskCoreAffinitySet(NULL, 1 | 2);
-    wait_for_usb(3000);
+    wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("thermo task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
@@ -56,7 +67,41 @@ static void thermo_task(void *data) {
     while (42) {
         shared__current_temp = max6675_get_temp(&conf); //TODO: returns status, pass &float
         LOG_INFO("Temp: %.2f°C", shared__current_temp);
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+    }
+
+    // Do not let a task procedure return
+    vTaskDelete(NULL);
+}
+
+
+static void relay_task(void *data) {
+    (void)data;
+    vTaskCoreAffinitySet(NULL, 1 | 2);
+    wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
+    LOG_INFO("relay task started (core: %d - aff: %lu)",
+             portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
+
+    t_relay hot_relay = {0};
+    hot_relay.conf.min_on_sec = 30;
+    hot_relay.conf.min_off_sec = 30;
+    init_relay(&hot_relay);
+
+    t_relay cool_relay = {0};
+    cool_relay.conf.min_on_sec = 5 * 60;
+    cool_relay.conf.min_off_sec = 5 * 60;
+    init_relay(&cool_relay);
+
+    vTaskDelay(pdMS_TO_TICKS(3000));  // TODO: wait for temp
+
+    vTaskDelay(pdMS_TO_TICKS(2000));  // in case of reboot loop
+
+    char *state2str[] = {"WAIT", "COOL", "HEAT"};
+
+    while (42) {
+        ctrl_temp(&hot_relay, &cool_relay);
+        LOG_INFO("Relay: %s", state2str[shared__state]);
+        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }
 
     // Do not let a task procedure return
@@ -66,8 +111,8 @@ static void thermo_task(void *data) {
 
 static void menu_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1);
-    wait_for_usb(3000);
+    vTaskCoreAffinitySet(NULL, 1); // just to be extra safe on the flash side
+    wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("menu task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
@@ -84,7 +129,8 @@ static void menu_task(void *data) {
 
     while (42) {
         menu_refresh();
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        LOG_INFO("Goal: %d°C", shared__goal_temp);
+        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }
 
     // Do not let a task procedure return
@@ -101,7 +147,7 @@ static void led_task(void *data) {
     }
     led(true);
 
-    wait_for_usb(3000);
+    wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("led task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
@@ -131,7 +177,10 @@ int main() {
 
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
-                                                3, NULL);
+                                                4, NULL);
+    BaseType_t relay_task_status = xTaskCreate(relay_task, "relay_task",
+                                               configMINIMAL_STACK_SIZE, NULL,
+                                               3, NULL);
     BaseType_t menu_task_status = xTaskCreate(menu_task, "menu_task",
                                               configMINIMAL_STACK_SIZE, NULL,
                                               2, NULL);
@@ -141,6 +190,7 @@ int main() {
 
     if (
         thermo_task_status == pdPASS
+        && relay_task_status == pdPASS
         && menu_task_status == pdPASS
         && led_task_status == pdPASS) {
 

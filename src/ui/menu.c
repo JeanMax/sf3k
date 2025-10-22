@@ -117,7 +117,7 @@ static int goal_dec() {
 }
 
 static int goal_ok() {
-    shared__goal_temp = g_tmp_goal_temp;
+    shared__goal_temp = g_tmp_goal_temp;  // TODO: might want to do that after interupt
     g_need_save = 1;
     return switch_to_base();
 }

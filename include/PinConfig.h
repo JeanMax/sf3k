@@ -22,7 +22,6 @@
 #define BUTTON_RIGHT_GPIO 15
 #define BUTTON_OK_GPIO 11
 
-//TODO:
 #define RELAY_COLD_GPIO 21
 #define RELAY_HOT_GPIO 22
 
