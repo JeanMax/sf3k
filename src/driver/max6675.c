@@ -16,7 +16,7 @@ void max6675_init(const t_max6675_conf *conf) {
     gpio_set_dir(conf->cs_pin, GPIO_OUT);
 }
 
-float max6675_get_temp(const t_max6675_conf *conf) {
+int max6675_get_temp(const t_max6675_conf *conf, float *temp) {
     uint8_t buf[sizeof(uint16_t)] = {0};
 
     gpio_put(conf->cs_pin, false);
@@ -28,14 +28,14 @@ float max6675_get_temp(const t_max6675_conf *conf) {
     if (ret != sizeof(uint16_t)) {
         LOG_ERROR("Couldn't read from spi (read len: %d / %d)",
                   ret, sizeof(uint16_t));
-        return -42.42;
+        return -1;
     }
 
     uint16_t val = (buf[0] << 8) | buf[1];
 
     if (val & 0x4) {
         LOG_ERROR("No thermocouple attached");
-        return -42.;
+        return -2;
     }
     int is_negative = val & 0x80000000;
 
@@ -43,5 +43,7 @@ float max6675_get_temp(const t_max6675_conf *conf) {
     if (is_negative) {
         val -= 4096;
     }
-    return val * 0.25;
+
+    *temp = (float)val / 4;
+    return 0;
 }

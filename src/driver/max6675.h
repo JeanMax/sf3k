@@ -15,6 +15,6 @@ struct max6675_conf {
 };
 
 void max6675_init(const t_max6675_conf *conf);
-float max6675_get_temp(const t_max6675_conf *conf);
+int max6675_get_temp(const t_max6675_conf *conf, float *temp);
 
 #endif

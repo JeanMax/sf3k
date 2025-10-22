@@ -8,11 +8,12 @@
 #include "driver/max6675.h"
 #include "driver/relay.h"
 #include "shared.h"
+#include "temp_ctrl/hysteresis.h"
+#include "temp_ctrl/mean_temp.h"
 #include "ui/menu.h"
 #include "ui/screen.h"
 #include "utils/log.h"
 #include "utils/persist.h"
-#include "temp_ctrl/hysteresis.h"
 
 
 #define REFRESH_DELAY_MS 1000
@@ -63,10 +64,16 @@ static void thermo_task(void *data) {
     };
 
     max6675_init(&conf);
+    float tmp_temp = -42;
+    int ret = 0;
 
     while (42) {
-        shared__current_temp = max6675_get_temp(&conf); //TODO: returns status, pass &float
-        LOG_INFO("Temp: %.2f°C", shared__current_temp);
+        ret = max6675_get_temp(&conf, &tmp_temp);
+        if (!ret) {
+            add_temp_to_history(tmp_temp);
+            shared__current_temp = get_mean_temp();
+            LOG_INFO("Temp: %.2f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+        }
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }
 
