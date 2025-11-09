@@ -12,6 +12,7 @@ set -ex
 if ! test -e ~/.pico-sdk; then
     ln -sv /usr/share/pico-sdk ~/.pico-sdk
 fi
+export PICO_SDK_PATH=~/.pico-sdk
 
 # Default to debug build
 if test "$RELEASE"; then

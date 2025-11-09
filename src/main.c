@@ -11,7 +11,7 @@
 #include "temp_ctrl/hysteresis.h"
 #include "temp_ctrl/mean_temp.h"
 #include "ui/menu.h"
-#include "ui/screen.h"
+#include "ui/oled.h"
 #include "utils/log.h"
 #include "utils/persist.h"
 
@@ -123,7 +123,7 @@ static void menu_task(void *data) {
     LOG_INFO("menu task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    init_screen(SCREEN_SCL_GPIO,
+    init_oled(SCREEN_SCL_GPIO,
                 SCREEN_SDA_GPIO,
                 SCREEN_SPEED);
 
@@ -135,7 +135,7 @@ static void menu_task(void *data) {
 
 
     while (42) {
-        menu_refresh();
+        menu_refresh();  // TODO: would make more sense to call from temp thread
         LOG_INFO("Goal: %d°C", shared__goal_temp);
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }

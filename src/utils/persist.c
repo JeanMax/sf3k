@@ -35,11 +35,11 @@ static void read_from_flash(void *dst, size_t len, size_t flash_addr) {
 void save_goal_temp() {
     uint8_t buf[FLASH_PAGE_SIZE] = {0};
     memcpy(buf, (void *)&shared__goal_temp, sizeof(shared__goal_temp));
-    write_to_flash(buf, sizeof(buf), GOAL_TEMP_FLASH_ADDR);
+    write_to_flash(buf, sizeof(buf), GOAL_TEMP_PERSISTENT_ADDR);
 }
 
 void restore_goal_temp() {
     read_from_flash((void *)&shared__goal_temp,
                     sizeof(shared__goal_temp),
-                    GOAL_TEMP_FLASH_ADDR);
+                    GOAL_TEMP_PERSISTENT_ADDR);
 }

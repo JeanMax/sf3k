@@ -13,6 +13,7 @@ extern SemaphoreHandle_t g_log_lock;
         xSemaphoreGive(g_log_lock);                 \
     } while (0)
 
+
 #ifdef NO_COLORS
 # define CLR_BLACK ""
 # define CLR_RED ""
@@ -37,7 +38,7 @@ extern SemaphoreHandle_t g_log_lock;
 
 
 #ifdef NDEBUG
-# define LOG_INFO(str, ...) WITH_LOCK( fprintf(stdout, str "\n", ##__VA_ARGS__) )
+# define LOG_INFO(str, ...) do {} while (0)
 # define LOG_DEBUG(str, ...) do {} while (0)
 # define LOG_WARNING(str, ...) do {} while (0)
 #else
@@ -56,6 +57,11 @@ extern SemaphoreHandle_t g_log_lock;
 #define AT CLR_WHITE __FILE__ ":" TOSTRING(__LINE__) CLR_RESET
 
 
+/** @brief  Init the mutex used to printf on debug usb
+ *
+ * @note: This poorly optimized, but since log are disabled
+ *        in release, who cares?
+ */
 void init_log_mutex(void);
 
 #endif

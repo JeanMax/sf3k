@@ -23,8 +23,22 @@ struct relay {
 };
 
 
-int switch_relay(t_relay *relay, bool state);
+/** @brief  Init the relay.
+ *
+ * @param relay  a t_relay with the conf part set (pin, min on and off)
+ *
+ * @return 0 if success
+ */
 int init_relay(t_relay *relay);
+
+/** @brief  Switch the relay.
+ *
+ * @param relay  a t_relay with the conf part set+init
+ * @param state  turn the relay on or off
+ *
+ * @return 0 if success
+ */
+int switch_relay(t_relay *relay, bool state);
 
 
 #endif

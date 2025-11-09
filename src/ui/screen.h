@@ -1,29 +1,68 @@
 #ifndef _SCREEN_H
 #define _SCREEN_H
 
-#include <stdint.h>
-
-#define SCREEN_DEFAULT_CONTRAST 127
-#define SCREEN_INVERT 0
 #define SCREEN_STR_LEN_MAX 8
 
 #define SCREEN_HOT_CHR '\x80'
 #define SCREEN_COLD_CHR '\x81'
 
 
-int init_screen(uint8_t scl_pin, uint8_t sda_pin, int32_t speed);
-void set_screen_contrast(uint8_t contrast);
-void clear_screen(void);
-int display_string(char *s, int line, int is_big, int is_inverted);
 
+/** @brief  Display the base screen, which include the current temperature,
+ *          relays states, and goal temperature.
+ *
+ * @return 0 if success
+ */
 int display_base_screen(void);
+
+/** @brief  Refresh the current temperature part of the base screen.
+ *
+ * @return 0 if success
+ */
 int refresh_base_current_temp(void);
+
+/** @brief  Refresh the goal temperature part of the base screen.
+ *
+ * @return 0 if success
+ */
 int refresh_base_goal_temp(void);
+
+/** @brief  Refresh the relay state part of the base screen.
+ *
+ * @return 0 if success
+ */
 int refresh_base_state(void);
 
+
+/** @brief  Display a menu composed of 3 string elements.
+ *
+ * The middle one which is `select`ed, the top one `before`,
+ * and the bottom one `after`. (SCREEN_STR_LEN_MAX == 8)
+ *
+ * @param before  string to display on the top
+ * @param select  string to display on the middle (inverted)
+ * @param after   string to display on the bottom
+ *
+ * @return 0 if success
+ */
 int display_menu_screen(char *before, char *select, char *after);
 
+
+/** @brief  Display the set goal sub menu.
+ *
+ * Relay state is still on top, followed by the temperature the user
+ * is currently setting, and then a string indicating the current action.
+ *
+ * @return 0 if success
+ */
 int display_set_goal_screen(void);
+
+/** @brief  Refresh the temporary goal part of the set goal sub menu.
+ *
+ * @param tmp_goal  the new temperature goal to display in the set goal menu
+ *
+ * @return 0 if success
+ */
 int refresh_set_goal(int tmp_goal);
 
 #endif

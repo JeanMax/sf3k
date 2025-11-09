@@ -6,6 +6,7 @@
 #include <task.h>
 
 #include "PinConfig.h"
+#include "oled.h"
 #include "screen.h"
 #include "shared.h"
 #include "utils/log.h"
@@ -17,8 +18,13 @@ volatile int g_need_save = 0;
 volatile int g_tmp_goal_temp = 0;
 
 //TODO: pass these as parameters, store them... good luck with callbacks
+int _switch_to_set_goal(void);
+int _reboot(void);
+int _reboot_to_bootsel(void);
+int _todo(void);
+
 #define MAX_MENU_ENTRIES 5
-char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX] =  {
+char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX + 1] =  {
     "Set goal",
     "Reboot  ",
     "BootSel ",
@@ -47,13 +53,13 @@ int _todo() {
 
 int _reboot() {
     LOG_INFO("Waiting to be rebooted by watchdog");
-    clear_screen();
+    oled_clear();
     while(42) {}
     return 0;
 }
 
 int _reboot_to_bootsel() {
-    clear_screen();
+    oled_clear();
     reset_usb_boot(0, 0);
     return 0;
 }
@@ -61,14 +67,14 @@ int _reboot_to_bootsel() {
 
 static int switch_to_base() {
     g_loc = BASE;
-    /* clear_screen(); // careful: flickering */
+    /* oled_clear(); // careful: flickering */
     return display_base_screen();
 }
 
 
 static int switch_to_menu() {
     g_loc = MENU;
-    /* clear_screen(); // careful: flickering */
+    /* oled_clear(); // careful: flickering */
     return display_menu_screen(MENU_AT(g_current_entry - 1),
                                MENU_AT(g_current_entry),
                                MENU_AT(g_current_entry + 1));
@@ -104,7 +110,7 @@ int menu_refresh() {
 int _switch_to_set_goal() {
     g_loc = SET_GOAL;
     g_tmp_goal_temp = shared__goal_temp;
-    /* clear_screen(); // careful: flickering */
+    /* oled_clear(); // careful: flickering */
     return display_set_goal_screen();
 }
 
