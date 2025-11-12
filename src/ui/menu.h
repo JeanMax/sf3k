@@ -10,6 +10,8 @@ enum location {
     BASE = 0,
     MENU,
     SET_GOAL,
+    SET_HOT_RANGE,
+    SET_COOL_RANGE,
     PI_TEMP,
     LIGHT_LEVEL,
 };

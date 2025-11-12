@@ -4,7 +4,8 @@
 #include "driver/relay.h"
 
 
-#define HYSTE_RANGE 1.5
+#define HYSTE_DEFAULT_HOT_RANGE 1.
+#define HYSTE_DEFAULT_COOL_RANGE 2.
 
 
 /** @brief  Control the temperature relays.

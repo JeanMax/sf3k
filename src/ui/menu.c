@@ -12,32 +12,41 @@
 #include "utils/log.h"
 #include "utils/persist.h"
 
+#define HYSTE_RANGE_INC 0.1
 
 volatile e_location g_loc = BASE;
-volatile int g_need_save = 0;
+volatile bool g_need_save = false;
 volatile int g_tmp_goal_temp = 0;
+volatile float g_tmp_hot_range = 0;
+volatile float g_tmp_cool_range = 0;
 
 //TODO: pass these as parameters, store them... good luck with callbacks
 int _switch_to_set_goal(void);
+int _switch_to_set_hot_range(void);
+int _switch_to_set_cool_range(void);
 int _reboot(void);
 int _reboot_to_bootsel(void);
 int _pi_temp(void);
 int _light_level(void);
 
-#define MAX_MENU_ENTRIES 5
+#define MAX_MENU_ENTRIES 7
 char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX + 1] =  {
     "Set goal",
+    "Set cool",
     "Reboot  ",
     "BootSel ",
     "Pi temp ",
     "Light % ",
+    "Set hot ",
 };
 t_menu_callback *g_menu_fun[MAX_MENU_ENTRIES] =  {
     _switch_to_set_goal,
+    _switch_to_set_cool_range,
     _reboot,
     _reboot_to_bootsel,
     _pi_temp,
     _light_level,
+    _switch_to_set_hot_range,
 };
 volatile int g_current_entry = 0;
 
@@ -73,6 +82,9 @@ int _light_level() {
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+
+
 static int switch_to_base() {
     g_loc = BASE;
     /* oled_clear(); // careful: flickering */
@@ -103,23 +115,85 @@ static int menu_ok() {
 }
 
 int menu_refresh() {
-    if (g_loc == BASE) {
+    switch(g_loc) {
+    case BASE:
         if (g_need_save) {
-            LOG_INFO("Saving goal");
-            save_goal_temp();
-            g_need_save = 0;
+            LOG_INFO("Saving config to flash");
+            save_persistent_config();
+            g_need_save = false;
         }
         return refresh_base_current_temp();
-
-    } else if (g_loc == PI_TEMP) {
+    case PI_TEMP:
         return refresh_pi_temp();
-
-    } else if (g_loc == LIGHT_LEVEL) {
+    case LIGHT_LEVEL:
         return refresh_light_level();
+    default:
+        return 0;
     }
-
-    return 0;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+int _switch_to_set_hot_range() {
+    g_loc = SET_HOT_RANGE;
+    g_tmp_hot_range = shared__hot_range;
+    /* oled_clear(); // careful: flickering */
+    return display_set_hot_range_screen();
+}
+
+static int hot_range_inc() {
+    g_tmp_hot_range += HYSTE_RANGE_INC;
+    return refresh_set_hot_range(g_tmp_hot_range);
+}
+
+static int hot_range_dec() {
+    g_tmp_hot_range -= HYSTE_RANGE_INC;
+    if (g_tmp_hot_range < 0) {
+        g_tmp_hot_range = 0;
+    }
+    return refresh_set_hot_range(g_tmp_hot_range);
+}
+
+static int hot_range_ok() {
+    shared__hot_range = g_tmp_hot_range;  // TODO: might want to do that after interupt
+    g_need_save = true;
+    return switch_to_base();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+int _switch_to_set_cool_range() {
+    g_loc = SET_COOL_RANGE;
+    g_tmp_cool_range = shared__cool_range;
+    /* oled_clear(); // careful: flickering */
+    return display_set_cool_range_screen();
+}
+
+static int cool_range_inc() {
+    g_tmp_cool_range += HYSTE_RANGE_INC;
+    return refresh_set_cool_range(g_tmp_cool_range);
+}
+
+static int cool_range_dec() {
+    g_tmp_cool_range -= HYSTE_RANGE_INC;
+    if (g_tmp_cool_range < 0) {
+        g_tmp_cool_range = 0;
+    }
+    return refresh_set_cool_range(g_tmp_cool_range);
+}
+
+static int cool_range_ok() {
+    shared__cool_range = g_tmp_cool_range;  // TODO: might want to do that after interupt
+    g_need_save = true;
+    return switch_to_base();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 
 int _switch_to_set_goal() {
@@ -139,9 +213,12 @@ static int goal_dec() {
 
 static int goal_ok() {
     shared__goal_temp = g_tmp_goal_temp;  // TODO: might want to do that after interupt
-    g_need_save = 1;
+    g_need_save = true;
     return switch_to_base();
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
 
 
 static void on_up() {
@@ -156,6 +233,12 @@ static void on_up() {
         break;
     case SET_GOAL:
         goal_inc();
+        break;
+    case SET_HOT_RANGE:
+        hot_range_inc();
+        break;
+    case SET_COOL_RANGE:
+        cool_range_inc();
         break;
     default:
         switch_to_menu();
@@ -175,6 +258,12 @@ static void on_down() {
     case SET_GOAL:
         goal_dec();
         break;
+    case SET_HOT_RANGE:
+        hot_range_dec();
+        break;
+    case SET_COOL_RANGE:
+        cool_range_dec();
+        break;
     default:
         switch_to_menu();
     }
@@ -189,9 +278,6 @@ static void on_left() {
         break;
     case MENU:
         switch_to_base();
-        break;
-    case SET_GOAL:
-        switch_to_menu();
         break;
     default:
         switch_to_menu();
@@ -211,6 +297,12 @@ static void on_right() {
     case SET_GOAL:
         goal_ok();
         break;
+    case SET_HOT_RANGE:
+        hot_range_ok();
+        break;
+    case SET_COOL_RANGE:
+        cool_range_ok();
+        break;
     default:
         switch_to_base();
     }
@@ -228,6 +320,12 @@ static void on_ok() {
         break;
     case SET_GOAL:
         goal_ok();
+        break;
+    case SET_HOT_RANGE:
+        hot_range_ok();
+        break;
+    case SET_COOL_RANGE:
+        cool_range_ok();
         break;
     default:
         switch_to_base();

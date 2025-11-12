@@ -17,7 +17,7 @@ void init_photor_and_internal_temp(uint8_t photor_pin);
  *
  * @param adc_channel  the adc channel to read
  *
- * @return a float value TODO
+ * @return the light level as a float percentage (0:dark 100:light)
  */
 float read_photor(uint8_t adc_channel);
 

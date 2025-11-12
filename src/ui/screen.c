@@ -84,3 +84,29 @@ int display_light_level_screen() {
         || refresh_light_level()
         || oled_display_string("  Light ", 3, 0, 0);
 }
+
+
+inline int refresh_set_hot_range(float tmp_hot_range) {
+    char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
+    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, ">  %2.1f <", tmp_hot_range);
+    return oled_display_string(temp_str, 1, 1, 0);
+}
+
+int display_set_hot_range_screen() {
+    return refresh_base_state()
+        || refresh_set_hot_range(shared__hot_range)
+        || oled_display_string("hot rng ", 3, 0, 0);
+}
+
+
+inline int refresh_set_cool_range(float tmp_cool_range) {
+    char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
+    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, ">  %2.1f <", tmp_cool_range);
+    return oled_display_string(temp_str, 1, 1, 0);
+}
+
+int display_set_cool_range_screen() {
+    return refresh_base_state()
+        || refresh_set_cool_range(shared__cool_range)
+        || oled_display_string("cool rng", 3, 0, 0);
+}

@@ -61,16 +61,25 @@ static int handle_temperature_relays(e_state requested_state,
 
 
 int ctrl_temp(t_relay *hot_relay, t_relay *cool_relay) {
+    float temp_diff = (float)shared__goal_temp - shared__current_temp;
 
-    if ((float)shared__goal_temp - shared__current_temp > HYSTE_RANGE) {
+    if (temp_diff > 0) {
+        // it's too cold
+        if (temp_diff < shared__cool_range) {
+            LOG_DEBUG("trying to wait (too cold)");
+            return handle_temperature_relays(WAIT, hot_relay, cool_relay);
+        }
+
         LOG_DEBUG("trying to heat");
         return handle_temperature_relays(HEAT, hot_relay, cool_relay);
-
-    } else if ((float)shared__goal_temp - shared__current_temp < -HYSTE_RANGE) {
-        LOG_DEBUG("trying to cool");
-        return handle_temperature_relays(COOL, hot_relay, cool_relay);
     }
 
-    LOG_DEBUG("trying to wait");
-    return handle_temperature_relays(WAIT, hot_relay, cool_relay);
+    // it's too hot
+    if (temp_diff * -1 < shared__hot_range) {
+        LOG_DEBUG("trying to wait (too hot)");
+        return handle_temperature_relays(WAIT, hot_relay, cool_relay);
+    }
+
+    LOG_DEBUG("trying to cool");
+    return handle_temperature_relays(COOL, hot_relay, cool_relay);
 }

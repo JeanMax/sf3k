@@ -14,5 +14,7 @@ extern volatile float shared__current_temp;
 extern volatile int shared__goal_temp;
 extern volatile e_state shared__state;
 
+extern volatile float shared__hot_range;
+extern volatile float shared__cool_range;
 
 #endif

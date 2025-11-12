@@ -30,6 +30,8 @@
 volatile float shared__current_temp = 0;
 volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
+volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
+volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
 
 
 #define USB_DEFAULT_TIMEOUT_MS 3000
@@ -124,9 +126,9 @@ static void relay_task(void *data) {
         float light_level = read_photor(PHOTOR_ADC_CHANNEL);
         LOG_DEBUG("PHOTOR: %.2f%%", light_level); /* DEBUG */
         if (light_level > LIGHT_LEVEL_TRIGGER) {
-            switch_relay(&fan_relay, 0); /* DEBUG */
+            switch_relay(&fan_relay, false); /* DEBUG */
         } else {
-            switch_relay(&fan_relay, 1); /* DEBUG */
+            switch_relay(&fan_relay, true); /* DEBUG */
         }
     }
 
@@ -200,6 +202,8 @@ int main() {
     stdio_init_all();
     init_log_mutex();
     restore_goal_temp();
+    restore_hot_range();
+    restore_cool_range();
 
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
