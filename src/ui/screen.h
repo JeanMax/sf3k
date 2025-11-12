@@ -65,4 +65,37 @@ int display_set_goal_screen(void);
  */
 int refresh_set_goal(int tmp_goal);
 
+
+/** @brief  Display the internal temp submenu
+ *
+ * Relay state is still on top, followed by the internal temperature of the
+ * raspberry pi, and then a string indicating the current action.
+ *
+ * @return 0 if success
+ */
+int display_pi_temp_screen(void);
+
+/** @brief  Refresh the temperature part of the internal temp sub menu.
+ *
+ * @return 0 if success
+ */
+int refresh_pi_temp();
+
+
+/** @brief  Display the light level sub menu.
+ *
+ * Relay state is still on top, followed by the light level given by the
+ * photoresistor, and then a string indicating the current action.
+ *
+ * @return 0 if success
+ */
+int display_light_level_screen(void);
+
+/** @brief  Refresh the light level part of the sub menu.
+ *
+ * @return 0 if success
+ */
+int refresh_light_level();
+
+
 #endif

@@ -10,6 +10,8 @@ enum location {
     BASE = 0,
     MENU,
     SET_GOAL,
+    PI_TEMP,
+    LIGHT_LEVEL,
 };
 
 typedef int t_menu_callback(void);

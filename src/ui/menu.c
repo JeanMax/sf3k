@@ -21,22 +21,23 @@ volatile int g_tmp_goal_temp = 0;
 int _switch_to_set_goal(void);
 int _reboot(void);
 int _reboot_to_bootsel(void);
-int _todo(void);
+int _pi_temp(void);
+int _light_level(void);
 
 #define MAX_MENU_ENTRIES 5
 char g_menu_entries[MAX_MENU_ENTRIES][SCREEN_STR_LEN_MAX + 1] =  {
     "Set goal",
     "Reboot  ",
     "BootSel ",
-    " Lorem  ",
-    "  Ipsum ",
+    "Pi temp ",
+    "Light % ",
 };
 t_menu_callback *g_menu_fun[MAX_MENU_ENTRIES] =  {
     _switch_to_set_goal,
     _reboot,
     _reboot_to_bootsel,
-    _todo,
-    _todo,
+    _pi_temp,
+    _light_level,
 };
 volatile int g_current_entry = 0;
 
@@ -44,11 +45,6 @@ volatile int g_current_entry = 0;
     (((idx) + MAX_MENU_ENTRIES) % MAX_MENU_ENTRIES)
 #define MENU_AT(idx)                            \
     g_menu_entries[CIRCULAR_INDEX(idx)]
-
-
-int _todo() {
-    return 0;
-}
 
 
 int _reboot() {
@@ -62,6 +58,18 @@ int _reboot_to_bootsel() {
     oled_clear();
     reset_usb_boot(0, 0);
     return 0;
+}
+
+int _pi_temp() {
+    g_loc = PI_TEMP;
+    /* oled_clear(); // careful: flickering */
+    return display_pi_temp_screen();
+}
+
+int _light_level() {
+    g_loc = LIGHT_LEVEL;
+    /* oled_clear(); // careful: flickering */
+    return display_light_level_screen();
 }
 
 
@@ -102,7 +110,14 @@ int menu_refresh() {
             g_need_save = 0;
         }
         return refresh_base_current_temp();
+
+    } else if (g_loc == PI_TEMP) {
+        return refresh_pi_temp();
+
+    } else if (g_loc == LIGHT_LEVEL) {
+        return refresh_light_level();
     }
+
     return 0;
 }
 
@@ -142,6 +157,8 @@ static void on_up() {
     case SET_GOAL:
         goal_inc();
         break;
+    default:
+        switch_to_menu();
     }
 }
 
@@ -158,6 +175,8 @@ static void on_down() {
     case SET_GOAL:
         goal_dec();
         break;
+    default:
+        switch_to_menu();
     }
 }
 
@@ -174,6 +193,8 @@ static void on_left() {
     case SET_GOAL:
         switch_to_menu();
         break;
+    default:
+        switch_to_menu();
     }
 }
 
@@ -190,6 +211,8 @@ static void on_right() {
     case SET_GOAL:
         goal_ok();
         break;
+    default:
+        switch_to_base();
     }
 }
 
@@ -206,6 +229,8 @@ static void on_ok() {
     case SET_GOAL:
         goal_ok();
         break;
+    default:
+        switch_to_base();
     }
 }
 

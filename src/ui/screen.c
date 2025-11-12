@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "PinConfig.h"
+#include "driver/photor.h"
 #include "oled.h"
 #include "shared.h"
 
@@ -53,4 +55,32 @@ int display_set_goal_screen() {
     return refresh_base_state()
         || refresh_set_goal(shared__goal_temp)
         || oled_display_string("new goal", 3, 0, 0);
+}
+
+
+inline int refresh_pi_temp() {
+    char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
+    float pi_temp = read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL);
+    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, "> %2.1f <", pi_temp);
+    return oled_display_string(temp_str, 1, 1, 0);
+}
+
+int display_pi_temp_screen() {
+    return refresh_base_state()
+        || refresh_pi_temp()
+        || oled_display_string("Pi temp", 3, 0, 0);
+}
+
+
+inline int refresh_light_level() {
+    char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
+    float light_level = read_photor(PHOTOR_ADC_CHANNEL);
+    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, "> %3d%% <", (int)light_level);
+    return oled_display_string(temp_str, 1, 1, 0);
+}
+
+int display_light_level_screen() {
+    return refresh_base_state()
+        || refresh_light_level()
+        || oled_display_string("  Light ", 3, 0, 0);
 }
