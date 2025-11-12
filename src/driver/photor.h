@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define LIGHT_LEVEL_TRIGGER 50
+
 
 /** @brief  Init the adc components: photoresistor and internal temp sensor.
  *

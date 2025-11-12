@@ -7,6 +7,7 @@
 #include "driver/led.h"
 #include "driver/max6675.h"
 #include "driver/relay.h"
+#include "driver/photor.h"
 #include "shared.h"
 #include "temp_ctrl/hysteresis.h"
 #include "temp_ctrl/mean_temp.h"
@@ -90,14 +91,24 @@ static void relay_task(void *data) {
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
     t_relay hot_relay = {0};
+    hot_relay.conf.pin = RELAY_HOT_GPIO;
     hot_relay.conf.min_on_sec = 30;
     hot_relay.conf.min_off_sec = 30;
     init_relay(&hot_relay);
 
     t_relay cool_relay = {0};
+    cool_relay.conf.pin = RELAY_COLD_GPIO;
     cool_relay.conf.min_on_sec = 5 * 60;
     cool_relay.conf.min_off_sec = 5 * 60;
     init_relay(&cool_relay);
+
+    t_relay fan_relay = {0};
+    fan_relay.conf.pin = RELAY_FAN_GPIO;
+    fan_relay.conf.min_on_sec = 10;
+    fan_relay.conf.min_off_sec = 10;
+    init_relay(&fan_relay);
+
+    init_photor_and_internal_temp(PHOTOR_GPIO);
 
     vTaskDelay(pdMS_TO_TICKS(3000));  // TODO: wait for temp
 
@@ -109,6 +120,14 @@ static void relay_task(void *data) {
         ctrl_temp(&hot_relay, &cool_relay);
         LOG_INFO("Relay: %s", state2str[shared__state]);
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+
+        float light_level = read_photor(PHOTOR_ADC_CHANNEL);
+        LOG_DEBUG("PHOTOR: %.2f%%", light_level); /* DEBUG */
+        if (light_level > LIGHT_LEVEL_TRIGGER) {
+            switch_relay(&fan_relay, 0); /* DEBUG */
+        } else {
+            switch_relay(&fan_relay, 1); /* DEBUG */
+        }
     }
 
     // Do not let a task procedure return
