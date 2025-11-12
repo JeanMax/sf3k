@@ -61,25 +61,41 @@ static int handle_temperature_relays(e_state requested_state,
 
 
 int ctrl_temp(t_relay *hot_relay, t_relay *cool_relay) {
-    float temp_diff = (float)shared__goal_temp - shared__current_temp;
+    float temp_diff = shared__current_temp - (float)shared__goal_temp;
 
-    if (temp_diff > 0) {
+    if (temp_diff < 0) {
         // it's too cold
-        if (temp_diff < shared__cool_range) {
-            LOG_DEBUG("trying to wait (too cold)");
-            return handle_temperature_relays(WAIT, hot_relay, cool_relay);
+        /* LOG_DEBUG("too cold: diff=%.2f, rng=%.2f", */
+        /*           temp_diff * -1, shared__cool_range); /\* DEBUG *\/ */
+
+        if (temp_diff * -1 > shared__cool_range) {
+            LOG_DEBUG("trying to heat (till target - cool_range)");
+            return handle_temperature_relays(HEAT, hot_relay, cool_relay);
         }
 
-        LOG_DEBUG("trying to heat");
-        return handle_temperature_relays(HEAT, hot_relay, cool_relay);
-    }
+        if (shared__state == HEAT) {
+            LOG_DEBUG("trying to heat (till target)");
+            return handle_temperature_relays(HEAT, hot_relay, cool_relay);
+        }
 
-    // it's too hot
-    if (temp_diff * -1 < shared__hot_range) {
-        LOG_DEBUG("trying to wait (too hot)");
+        LOG_DEBUG("trying to wait (too cold)");
         return handle_temperature_relays(WAIT, hot_relay, cool_relay);
     }
 
-    LOG_DEBUG("trying to cool");
-    return handle_temperature_relays(COOL, hot_relay, cool_relay);
+    // it's too hot
+    /* LOG_DEBUG("too hot: diff=%.2f, rng=%.2f", */
+    /*           temp_diff, shared__hot_range); /\* DEBUG *\/ */
+
+    if (temp_diff> shared__hot_range) {
+        LOG_DEBUG("trying to cool (till target + hot_range)");
+        return handle_temperature_relays(COOL, hot_relay, cool_relay);
+    }
+
+    if (shared__state == COOL) {
+        LOG_DEBUG("trying to cool (till target)");
+        return handle_temperature_relays(COOL, hot_relay, cool_relay);
+    }
+
+    LOG_DEBUG("trying to wait (too hot)");
+    return handle_temperature_relays(WAIT, hot_relay, cool_relay);
 }

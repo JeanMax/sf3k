@@ -12,6 +12,8 @@
 *
 * This is based on the temperatures `shared__goal_temp` and
 * `shared__current_temp`, with a really basic hysteresis algorithm.
+* If the the current temperature is under the goal_temp - shared__cool_range,
+* heat until reaching goal_temp. Same idea for cooling.
 *
 * @param hot_relay  the relay config used to trigger heating
 * @param cool_relay the relay config used to trigger cooling
