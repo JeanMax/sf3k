@@ -64,6 +64,7 @@ target_link_libraries(sf3k
     pico_cyw43_arch_none
     hardware_spi
     hardware_i2c
+    hardware_adc
     hardware_timer
     hardware_flash
     hardware_sync

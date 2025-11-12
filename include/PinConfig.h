@@ -25,5 +25,10 @@
 #define RELAY_COLD_GPIO 21
 #define RELAY_HOT_GPIO 22
 
+#define RELAY_FAN_GPIO 20
+
+#define PHOTOR_GPIO 28
+#define PHOTOR_ADC_CHANNEL 2
+#define INTERNAL_TEMP_ADC_CHANNEL 4
 
 #endif

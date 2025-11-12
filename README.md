@@ -3,11 +3,11 @@
 
 A STC-1000 like on a Raspbeery Pico
 
+* TODO: doc on build / flash / console
+* TODO: doc on PinConfig.h
+
+
 # TODO
-
-
-
-
 
     |          |         | [USB] |         |          |
     | I2C0 SDA |   GP0   |1    40| VBUS    |          |
@@ -15,11 +15,11 @@ A STC-1000 like on a Raspbeery Pico
     |          |    GND1 |3    38| GND8    |          |
     |          |   GP2   |4    37| 3V3_EN  |          |
     |          |   GP3   |5    36| 3V3 OUT |          |
-    |          |   GP4   |6    35|         |          |
-    |          |   GP5   |7    34|  GP28   |          |
-    |          |    GND2 |8    33| GND7    |          |
-    |          |   GP6   |9    32|  GP27   |          |
-    |          |   GP7   |10   31|  GP26   |          |
+    |          |   GP4   |6    35|         | ADC_VREF |
+    |          |   GP5   |7    34|  GP28   | ADC2     |
+    |          |    GND2 |8    33| GND7    |  AGND    |
+    |          |   GP6   |9    32|  GP27   | ADC1     |
+    |          |   GP7   |10   31|  GP26   | ADC0     |
     |          |   GP8   |11   30| RUN     |          |
     |          |   GP9   |12   29|  GP22   |          |
     |          |    GND3 |13   28| GND6    |          |
@@ -31,14 +31,23 @@ A STC-1000 like on a Raspbeery Pico
     |          |   GP14  |19   22|  GP17   | SPI0 CSn |
     |          |   GP15  |20   21|  GP16   | SPI0 RX  |
 
+ADC4 == internal temp
+ADC3 == GP29 == led, but also wifi internal use -> "reserved"
+
 
 * components:
-  * pico (Raspberry Pi Pico 2 W - RP2350)
+  * pico (Raspberry Pi Pico 2 W - RP2350 A2 QFN60)
   * temp - resistor type K
     * MAX 6675
   * relay (x2) - ENMG solid state relay PG5A2032
   * screen - NFP1315-45AY (128x64)
   * buttons - x5 combo
+  * TODO:
+    * button
+    * dc relay
+    * photoresistor
+    * fan
+    * 12v converter
 
 
 * thermo-MAX (SPI):
@@ -54,7 +63,7 @@ A STC-1000 like on a Raspbeery Pico
   * SCL [2]
   * SDA [1]
 
-* buttons: (GPIO)
+* buttons control: (GPIO)
   * GND [3]
   * IN1 [15]
   * IN2 [16]
@@ -62,11 +71,25 @@ A STC-1000 like on a Raspbeery Pico
   * IN4 [19]
   * IN5 [20]
 
-* relays: (GPIO)
+* relays AC: (GPIO)
   * VCC
   * GND [28]
-  * IN1 [29]
-  * IN2 [27]
+  * IN1 [29] (hot)
+  * IN2 [27] (cold)
+
+* relay DC: (GPIO)
+  * VCC
+  * GND [28]
+  * IN1 [26] (fan)
+
+* button reset: (RUN)
+  * RUN [30]
+  * GND [38]
+
+* photoresistor: (ADC)
+  * VCC
+  * GND
+  * ADC2 [34]
 
 
 * software features:
