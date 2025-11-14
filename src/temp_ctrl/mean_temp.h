@@ -1,7 +1,7 @@
 #ifndef _MEAN_TEMP_H
 #define _MEAN_TEMP_H
 
-#define MAX_TEMP_HISTORY 64
+#define MAX_TEMP_HISTORY 8
 
 /** @brief  Get the mean temp.
  *

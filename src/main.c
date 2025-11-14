@@ -56,7 +56,7 @@ static int wait_for_usb(int timeout_ms) {
 
 static void thermo_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1 | 2);
+    vTaskCoreAffinitySet(NULL, 2);
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("thermo task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
@@ -99,7 +99,7 @@ static void thermo_task(void *data) {
 
 static void relay_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1 | 2);
+    vTaskCoreAffinitySet(NULL, 1);
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("relay task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
@@ -112,7 +112,7 @@ static void relay_task(void *data) {
 
     t_relay cool_relay = {0};
     cool_relay.conf.pin = RELAY_COLD_GPIO;
-    cool_relay.conf.min_on_sec = 5 * 60;
+    cool_relay.conf.min_on_sec = 1 * 60;
     cool_relay.conf.min_off_sec = 5 * 60;
     init_relay(&cool_relay);
 
@@ -185,7 +185,7 @@ static void menu_task(void *data) {
 
 static void led_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1 | 2);
+    vTaskCoreAffinitySet(NULL, 1);
 
     if (init_led()) {
         panic("Wi-Fi init failed");
@@ -235,8 +235,7 @@ int main() {
                                              configMINIMAL_STACK_SIZE, NULL,
                                              1, NULL);
 
-    if (
-        thermo_task_status == pdPASS
+    if (thermo_task_status == pdPASS
         && relay_task_status == pdPASS
         && menu_task_status == pdPASS
         && led_task_status == pdPASS) {

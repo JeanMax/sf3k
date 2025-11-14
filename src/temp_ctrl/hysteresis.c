@@ -65,15 +65,16 @@ int ctrl_temp(t_relay *hot_relay, t_relay *cool_relay) {
 
     if (temp_diff < 0) {
         // it's too cold
+        temp_diff *= -1;
         /* LOG_DEBUG("too cold: diff=%.2f, rng=%.2f", */
-        /*           temp_diff * -1, shared__cool_range); /\* DEBUG *\/ */
+        /*           temp_diff, shared__cool_range); /\* DEBUG *\/ */
 
-        if (temp_diff * -1 > shared__cool_range) {
+        if (temp_diff > shared__cool_range) {
             LOG_DEBUG("trying to heat (till target - cool_range)");
             return handle_temperature_relays(HEAT, hot_relay, cool_relay);
         }
 
-        if (shared__state == HEAT) {
+        if (shared__state == HEAT && temp_diff > shared__cool_range / 2) {
             LOG_DEBUG("trying to heat (till target)");
             return handle_temperature_relays(HEAT, hot_relay, cool_relay);
         }
@@ -86,12 +87,12 @@ int ctrl_temp(t_relay *hot_relay, t_relay *cool_relay) {
     /* LOG_DEBUG("too hot: diff=%.2f, rng=%.2f", */
     /*           temp_diff, shared__hot_range); /\* DEBUG *\/ */
 
-    if (temp_diff> shared__hot_range) {
+    if (temp_diff > shared__hot_range) {
         LOG_DEBUG("trying to cool (till target + hot_range)");
         return handle_temperature_relays(COOL, hot_relay, cool_relay);
     }
 
-    if (shared__state == COOL) {
+    if (shared__state == COOL && temp_diff > shared__hot_range / 2) {
         LOG_DEBUG("trying to cool (till target)");
         return handle_temperature_relays(COOL, hot_relay, cool_relay);
     }

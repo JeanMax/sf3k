@@ -46,7 +46,8 @@ int init_relay(t_relay *relay) {
 
     gpio_put(relay->conf.pin, false);
     relay->is_on = false;
-    relay->last_off_sec = NEVER;  // so you can turn it on right now
+    /* relay->last_off_sec = NEVER;  // so you can turn it on right now */
+    relay->last_off_sec = NOW();  // so you can NOT turn it on right now
     relay->last_on_sec = NEVER;
 
     return 0;
