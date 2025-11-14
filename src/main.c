@@ -5,7 +5,8 @@
 
 #include "PinConfig.h"
 #include "driver/led.h"
-#include "driver/max6675.h"
+/* #include "driver/max6675.h" */
+#include "driver/dht.h"
 #include "driver/relay.h"
 #include "driver/photor.h"
 #include "shared.h"
@@ -26,8 +27,10 @@
 #endif
 #define WATCHDOG_DELAY_MS 1000
 
+
+
 //TODO: move these
-volatile float shared__current_temp = 0;
+volatile float shared__current_temp = -42;
 volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
@@ -58,26 +61,35 @@ static void thermo_task(void *data) {
     LOG_INFO("thermo task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    t_max6675_conf conf = {
-        .spi_bus = THERMO_SPI_BUS,
-        .baudrate = THERMO_SPI_BAUDRATE,
-        .so_pin = THERMO_SO_GPIO,
-        .sck_pin = THERMO_SCK_GPIO,
-        .cs_pin = THERMO_CS_GPIO,
-    };
+    /* t_max6675_conf conf = { */
+    /*     .spi_bus = THERMO_SPI_BUS, */
+    /*     .baudrate = THERMO_SPI_BAUDRATE, */
+    /*     .so_pin = THERMO_SO_GPIO, */
+    /*     .sck_pin = THERMO_SCK_GPIO, */
+    /*     .cs_pin = THERMO_CS_GPIO, */
+    /* }; */
 
-    max6675_init(&conf);
+    /* max6675_init(&conf); */
+    /* float tmp_temp = -42; */
+    /* int ret = 0; */
+
+    init_dht(DHT_GPIO);
     float tmp_temp = -42;
+    float tmp_hum = -42;
     int ret = 0;
 
     while (42) {
-        ret = max6675_get_temp(&conf, &tmp_temp);
+        /* ret = max6675_get_temp(&conf, &tmp_temp); */
+        ret = dht_read(&tmp_temp, &tmp_hum, DHT_GPIO);
         if (!ret) {
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
             LOG_INFO("Temp: %.2f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+            LOG_DEBUG("Humidity: %d%%", (int)tmp_hum);
+        } else {
+            LOG_WARNING("NO TEMP: %d", ret);
         }
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        vTaskDelay(pdMS_TO_TICKS(DHT_READ_DELAY_MS));
     }
 
     // Do not let a task procedure return
@@ -117,6 +129,11 @@ static void relay_task(void *data) {
     vTaskDelay(pdMS_TO_TICKS(2000));  // in case of reboot loop
 
     char *state2str[] = {"WAIT", "COOL", "HEAT"};
+
+    while (!TEMP_OK(shared__current_temp)) {
+        LOG_DEBUG("Waiting for temp...");
+        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+    }
 
     while (42) {
         ctrl_temp(&hot_relay, &cool_relay);

@@ -62,7 +62,7 @@ target_include_directories(sf3k PRIVATE
 target_link_libraries(sf3k
     pico_stdlib
     pico_cyw43_arch_none
-    hardware_spi
+    hardware_spi  # TODO: remove if removing max6675
     hardware_i2c
     hardware_adc
     hardware_timer

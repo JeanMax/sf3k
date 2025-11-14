@@ -56,6 +56,10 @@ ADC3 == GP29 == led, but also wifi internal use -> "reserved"
   * SCK [24]
   * CS  [22]
   * SO  [21]
+* OR thermo dht22 (GPIO):
+  * VCC
+  * GND [38]
+  * IN1 [24]
 
 * screen (I2C):
   * VCC

@@ -13,6 +13,8 @@
 #define THERMO_CS_GPIO 17
 #define THERMO_SO_GPIO 16
 
+#define DHT_GPIO 18
+
 #define SCREEN_SDA_GPIO 0
 #define SCREEN_SCL_GPIO 1
 

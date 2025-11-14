@@ -1,3 +1,5 @@
 #!/bin/bash -x
 
-sudo minicom -D /dev/ttyACM? -b 115200
+sudo minicom -C /tmp/sf3k.log \
+     -D /dev/ttyACM? \
+     -b 115200
