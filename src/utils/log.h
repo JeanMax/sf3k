@@ -41,6 +41,7 @@ extern SemaphoreHandle_t g_log_lock;
 # define LOG_INFO(str, ...) do {} while (0)
 # define LOG_DEBUG(str, ...) do {} while (0)
 # define LOG_WARNING(str, ...) do {} while (0)
+# define LOG_ERROR(str, ...) do {} while (0)
 #else
 # define LOG_INFO(str, ...)                                             \
     WITH_LOCK( fprintf(stdout, CLR_BLUE "[INFO]: " CLR_RESET str "\n", ##__VA_ARGS__) )
@@ -48,9 +49,9 @@ extern SemaphoreHandle_t g_log_lock;
     WITH_LOCK( fprintf(stderr, CLR_MAGENTA "[DEBUG]: " CLR_RESET str "\n", ##__VA_ARGS__) )
 # define LOG_WARNING(str, ...)                                          \
     WITH_LOCK( fprintf(stderr, CLR_YELLOW "[WARNING]: " CLR_RESET str "\n", ##__VA_ARGS__) )
-#endif
 #define LOG_ERROR(str, ...)                                             \
     WITH_LOCK( fprintf(stderr, CLR_RED "[ERROR]: " CLR_RESET str "\n", ##__VA_ARGS__) )
+#endif
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
