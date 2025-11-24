@@ -3,8 +3,14 @@
 #include "log.h"
 #include "shared.h"
 
-#include <hardware/flash.h>
 #include <string.h>
+#include <hardware/flash.h>
+
+typedef struct padded_persistent_conf  t_padded_persistent_conf;
+struct padded_persistent_conf {
+    t_persistent_conf pconf;
+    char _pad[FLASH_PAGE_SIZE - sizeof(t_persistent_conf)];
+};
 
 
 inline static size_t align_page(size_t i) {
@@ -32,11 +38,12 @@ static void read_from_flash(void *dst, size_t len, size_t flash_addr) {
 }
 
 
-void save_persistent_config() {
-    t_persistent_conf conf = {
-        .goal_temp = shared__goal_temp,
-        .hot_range = shared__hot_range,
-        .cool_range = shared__cool_range,
+void save_padded_persistent_config() {
+    t_padded_persistent_conf conf = {
+        .pconf.goal_temp = shared__goal_temp,
+        .pconf.hot_range = shared__hot_range,
+        .pconf.cool_range = shared__cool_range,
+        ._pad = {0}
     };
     write_to_flash(&conf, sizeof(conf), BASE_ADDR_PERSISTENT);
 }
