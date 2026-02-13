@@ -1,13 +1,34 @@
 # SuperFreezer3000
 
-
 A STC-1000 like on a Raspbeery Pico
 
-* TODO: doc on build / flash / console
-* TODO: doc on PinConfig.h
+
+## Build
+
+You could basically get away with a proper `cmake` call, but there's:
+```
+./build.sh
+```
+Look inside for options, it's pretty straight forward.
 
 
-# TODO
+## Flash
+
+The standard pico way of flashing will work once you have a `uf2` file ready from the previous step, but there's a script here that will also handle rebooting the raspberry as needed:
+```
+./flash.sh
+```
+
+## Console
+
+You need to connect with minicom or something similar.
+Alternatively, you can just:
+```
+./console.sh
+```
+
+
+## Pins
 
     |          |         | [USB] |         |          |
     | I2C0 SDA |   GP0   |1    40| VBUS    |          |
@@ -31,6 +52,8 @@ A STC-1000 like on a Raspbeery Pico
     |          |   GP14  |19   22|  GP17   | SPI0 CSn |
     |          |   GP15  |20   21|  GP16   | SPI0 RX  |
 
+* ^ see PinConfig.h
+
 ADC4 == internal temp
 ADC3 == GP29 == led, but also wifi internal use -> "reserved"
 
@@ -42,12 +65,11 @@ ADC3 == GP29 == led, but also wifi internal use -> "reserved"
   * relay (x2) - ENMG solid state relay PG5A2032
   * screen - NFP1315-45AY (128x64)
   * buttons - x5 combo
-  * TODO:
-    * button
-    * dc relay
-    * photoresistor
-    * fan
-    * 12v converter
+  * button
+  * dc relay
+  * photoresistor
+  * fan
+  * 12v converter
 
 
 * thermo-MAX (SPI):
@@ -96,10 +118,11 @@ ADC3 == GP29 == led, but also wifi internal use -> "reserved"
   * ADC2 [34]
 
 
-* software features:
-  * config target temp
-  * toggle relays based on temp + config
-  * display:
-    * current temp
-    * target temp
-    * relays state
+## software features:
+
+* config target temp
+* toggle relays based on temp + config
+* display:
+  * current temp
+  * target temp
+  * relays state
