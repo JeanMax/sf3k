@@ -38,7 +38,7 @@ static void read_from_flash(void *dst, size_t len, size_t flash_addr) {
 }
 
 
-void save_padded_persistent_config() {
+void save_persistent_config() {
     t_padded_persistent_conf conf = {
         .pconf.goal_temp = shared__goal_temp,
         .pconf.hot_range = shared__hot_range,
