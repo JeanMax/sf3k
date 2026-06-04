@@ -22,7 +22,8 @@
 #define configUSE_QUEUE_SETS                    1
 #define configUSE_TIME_SLICING                  1
 #define configUSE_NEWLIB_REENTRANT              0
-#define configENABLE_BACKWARD_COMPATIBILITY     0
+// need this for lwip FreeRTOS sys_arch to compile
+#define configENABLE_BACKWARD_COMPATIBILITY     1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS 5
 
 /* System */
@@ -82,6 +83,10 @@
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY  16
 #define configCPU_CLOCK_HZ                    150000000
 #endif
+
+/* RP2xxx specific */
+#define configSUPPORT_PICO_SYNC_INTEROP         1
+#define configSUPPORT_PICO_TIME_INTEROP         1
 
 #include <assert.h>
 /* Define to trap errors during development. */

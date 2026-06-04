@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(WIFI_SSID "${WIFI_SSID}" CACHE INTERNAL "")
+set(WIFI_PASSWORD "${WIFI_PASSWORD}" CACHE INTERNAL "")  # should be set in build.sh
 
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
@@ -54,6 +56,13 @@ pico_set_program_version(sf3k "0.1")
 pico_enable_stdio_uart(sf3k 0)
 pico_enable_stdio_usb(sf3k 1)
 
+target_compile_definitions(sf3k PRIVATE
+    WIFI_SSID=\"${WIFI_SSID}\"
+    WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+    ALTCP_MBEDTLS_AUTHMODE=MBEDTLS_SSL_VERIFY_REQUIRED
+    CYW43_TASK_STACK_SIZE=2048)
+
+
 target_include_directories(sf3k PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_SOURCE_DIR}/include
@@ -61,7 +70,10 @@ target_include_directories(sf3k PRIVATE
 
 target_link_libraries(sf3k
     pico_stdlib
-    pico_cyw43_arch_none
+    pico_cyw43_arch_lwip_sys_freertos
+    pico_lwip_http
+    pico_lwip_mbedtls
+    pico_mbedtls
     hardware_spi  # TODO: remove if removing max6675
     hardware_i2c
     hardware_adc
@@ -72,5 +84,11 @@ target_link_libraries(sf3k
     pico_multicore
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4)
+
+# Ignore warnings from lwip code
+set_source_files_properties(
+    ${PICO_LWIP_PATH}/src/apps/altcp_tls/altcp_tls_mbedtls.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-result")
 
 pico_add_extra_outputs(sf3k)
