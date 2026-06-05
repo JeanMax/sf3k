@@ -4,6 +4,7 @@
 
 
 int init_led() {
+    // this is actually the wifi init
     return cyw43_arch_init();
 }
 

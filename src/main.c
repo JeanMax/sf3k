@@ -2,6 +2,7 @@
 #include <hardware/watchdog.h>
 #include <task.h>
 #include <tusb.h>
+#include <pico/cyw43_arch.h>
 
 #include "PinConfig.h"
 #include "driver/led.h"
@@ -16,7 +17,8 @@
 #include "ui/oled.h"
 #include "utils/log.h"
 #include "utils/persist.h"
-
+#include "wifi/http_client.h"
+#include "wifi/rmrf.fr.h"
 
 #define REFRESH_DELAY_MS 1000
 
@@ -27,7 +29,8 @@
 #endif
 #define WATCHDOG_DELAY_MS 1000
 
-
+#define WIFI_CONNECT_TIMEOUT_MS 30000
+#define HTTP_REQUEST_DELAY_MS (15 * 60 * 1000)
 
 //TODO: move these
 volatile float shared__current_temp = -42;
@@ -99,7 +102,7 @@ static void thermo_task(void *data) {
 
 static void relay_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1);
+    vTaskCoreAffinitySet(NULL, 2);
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("relay task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
@@ -124,9 +127,7 @@ static void relay_task(void *data) {
 
     init_photor_and_internal_temp(PHOTOR_GPIO);
 
-    vTaskDelay(pdMS_TO_TICKS(3000));  // TODO: wait for temp
-
-    vTaskDelay(pdMS_TO_TICKS(2000));  // in case of reboot loop
+    vTaskDelay(pdMS_TO_TICKS(3000));  // in case of reboot loop
 
     char *state2str[] = {"WAIT", "COOL", "HEAT"};
 
@@ -156,7 +157,9 @@ static void relay_task(void *data) {
 
 static void menu_task(void *data) {
     (void)data;
-    vTaskCoreAffinitySet(NULL, 1); // just to be extra safe on the flash side
+    // menu will read / write to flash,
+    // so we'll keep all flash access to core 1 for safety
+    vTaskCoreAffinitySet(NULL, 1);
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("menu task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
@@ -183,18 +186,62 @@ static void menu_task(void *data) {
 }
 
 
-static void led_task(void *data) {
+static void wifi_task(void *data) {
     (void)data;
+    // the http server might need to edit config, so flash access is required,
+    // -> core 1
     vTaskCoreAffinitySet(NULL, 1);
 
-    if (init_led()) {
+    if (cyw43_arch_init()) {
         panic("Wi-Fi init failed");
     }
     led(true);
 
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
+    LOG_INFO("wifi task started (core: %d - aff: %lu)",
+             portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
+
+    cyw43_arch_enable_sta_mode();
+    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
+                                           CYW43_AUTH_WPA2_AES_PSK,
+                                           WIFI_CONNECT_TIMEOUT_MS)) {
+        panic("Wi-Fi connect failed");
+    }
+
+    const char host[] = HOST__RMRF;
+    const uint8_t tls_cert[] = TLS_ROOT_CERT__RMRF;
+    t_http_client_conf conf = {
+        .host=host,
+        .tls_cert=tls_cert,
+        .tls_len=sizeof(tls_cert)
+    };
+
+    while (42) {
+        vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
+        http_request(&conf, "/pouet", "Content-Type: application/json",
+                     "{\"name\": \"bob\", \"temp\": 22.2}");
+/* curl -v --http1.0 'https://log.brewersfriend.com/stream/ea84b940e6b68e365c0d9178eb46ee036c79f47a' -X POST -H 'Content-Type: application/json' -d '{"name": "Test3000", "temp": 22.2, "ambient": 27.7, "temp_target": 22, "temp_unit": "C", "hysteresis": 42, "heat_state": "heating", "comment": "pouet"}' */
+    }
+
+    cyw43_arch_deinit(); // never
+
+    // Do not let a task procedure return
+    vTaskDelete(NULL);
+}
+
+
+
+static void led_task(void *data) {
+    (void)data;
+    // same core as the wifi task, probably not needed
+    // -> core 1
+    vTaskCoreAffinitySet(NULL, 1);
+
+    wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("led task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
+
+    vTaskDelay(pdMS_TO_TICKS(2000)); // wait for init in wifi_task
 
     if (watchdog_enable_caused_reboot()) {
         LOG_ERROR("Rebooted by Watchdog!");
@@ -222,23 +269,28 @@ int main() {
     restore_hot_range();
     restore_cool_range();
 
+    // dht is time sensitive, so the thermo task should be highest priority
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
-                                                4, NULL);
+                                                5, NULL);
     BaseType_t relay_task_status = xTaskCreate(relay_task, "relay_task",
                                                configMINIMAL_STACK_SIZE, NULL,
-                                               3, NULL);
+                                               4, NULL);
     BaseType_t menu_task_status = xTaskCreate(menu_task, "menu_task",
+                                              configMINIMAL_STACK_SIZE, NULL,
+                                              3, NULL);
+    BaseType_t wifi_task_status = xTaskCreate(wifi_task, "wifi_task",
                                               configMINIMAL_STACK_SIZE, NULL,
                                               2, NULL);
     BaseType_t led_task_status = xTaskCreate(led_task, "led_task",
-                                             configMINIMAL_STACK_SIZE, NULL,
-                                             1, NULL);
+                                              configMINIMAL_STACK_SIZE, NULL,
+                                              1, NULL);
 
     if (thermo_task_status == pdPASS
         && relay_task_status == pdPASS
         && menu_task_status == pdPASS
-        && led_task_status == pdPASS) {
+        && led_task_status == pdPASS
+        && wifi_task_status == pdPASS) {
 
         vTaskStartScheduler();
         // blocking
