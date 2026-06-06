@@ -3,6 +3,19 @@
 set -ex
 
 
+
+WIFI_SSID=${WIFI_SSID:-Linternet}
+if ! test "$WIFI_PASSWORD"; then
+    echo "You need to pass \$WIFI_PASSWORD (and eventually change \$WIFI_SSID=$WIFI_SSID)"
+    exit 42
+fi
+if ! test "$BREW_KEY"; then
+    echo "You need to pass \$BREW_KEY (and eventually change \$WIFI_SSID=$WIFI_SSID)"
+    exit 42
+fi
+
+
+
 ### Requirements
 # 1. CMake 3.20 or later
 # 2. Raspberry Pi Pico C SDK
@@ -37,6 +50,7 @@ test "$CLEAN" && cmake --build $BUILD_DIR --target clean
 test -d $BUILD_DIR || cmake -DCMAKE_BUILD_TYPE=$REL \
                             -DWIFI_SSID="$WIFI_SSID" \
                             -DWIFI_PASSWORD="$WIFI_PASSWORD" \
+                            -DBREW_KEY="$BREW_KEY" \
                             -B $BUILD_DIR
 
 # Build the project
