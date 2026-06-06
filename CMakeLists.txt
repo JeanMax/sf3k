@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(WIFI_SSID "${WIFI_SSID}" CACHE INTERNAL "")
 set(WIFI_PASSWORD "${WIFI_PASSWORD}" CACHE INTERNAL "")  # should be set in build.sh
+set(BREW_KEY "${BREW_KEY}" CACHE INTERNAL "")  # should be set in build.sh
 
 # Initialise pico_sdk from installed location
 # (note this can come from environment, CMake cache etc)
@@ -27,6 +28,7 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 set(PICO_PLATFORM rp2350 CACHE STRING "Board name")
 set(WIFI_SSID Linternet CACHE STRING "Wifi SSID")
 set(WIFI_PASSWORD internet974 CACHE STRING "Wifi PASS")
+set(BREW_KEY ea84b940e6b68e365c0d9178eb46ee036c79f47a CACHE STRING "BrewersFriend API key")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -59,6 +61,7 @@ pico_enable_stdio_usb(sf3k 1)
 target_compile_definitions(sf3k PRIVATE
     WIFI_SSID=\"${WIFI_SSID}\"
     WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+    BREW_KEY=\"${BREW_KEY}\"
     ALTCP_MBEDTLS_AUTHMODE=MBEDTLS_SSL_VERIFY_REQUIRED
     CYW43_TASK_STACK_SIZE=2048)
 

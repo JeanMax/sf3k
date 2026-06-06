@@ -3,13 +3,6 @@
 set -ex
 
 
-WIFI_SSID=${WIFI_SSID:-Linternet}
-if ! test "$WIFI_PASSWORD"; then
-    echo "You need to pass \$WIFI_PASSWORD (and eventually change \$WIFI_SSID=$WIFI_SSID)"
-    exit 42
-fi
-
-
 ### Requirements
 # 1. CMake 3.20 or later
 # 2. Raspberry Pi Pico C SDK

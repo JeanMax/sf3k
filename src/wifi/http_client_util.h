@@ -7,7 +7,8 @@
 #ifndef EXAMPLE_HTTP_CLIENT_UTIL_H
 #define EXAMPLE_HTTP_CLIENT_UTIL_H
 
-#include "lwip/apps/http_client.h"
+#include "http_client_lwip.h"
+
 
 /** @brief Parameters used to make HTTP request
  *  @ingroup pico_lwip

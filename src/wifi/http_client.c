@@ -26,6 +26,27 @@ static err_t http_client_receive_print_fn(__unused void *arg, __unused struct al
     return ERR_OK;
 }
 
+#define DEFAULT_HEADER                          \
+    "User-Agent: sf3k" EOL                      \
+    "Accept: */*" EOL                           \
+    "Connection: Close" EOL
+
+#define FORMAT_GET(url, headers, host)          \
+    "GET %s HTTP/1.1" EOL                       \
+    DEFAULT_HEADER                              \
+    "%s"                                        \
+    "Host: %s" EOL EOL,                         \
+     url, headers ? headers : "", host
+
+#define FORMAT_POST(url, headers, host, content)                    \
+    "POST %s HTTP/1.1" EOL                                          \
+    DEFAULT_HEADER                                                  \
+    "%s"                                                            \
+    "Host: %s" EOL                                                  \
+    "Content-length: %d" EOL EOL                                    \
+    "%s" EOL EOL,                                                   \
+    url, headers ? headers : "", host, strlen(content), content
+
 #define ENCODE_BUF_SIZE 2048
 
 static const char *encode_url(const char *host,
@@ -34,20 +55,9 @@ static const char *encode_url(const char *host,
     static char buf[ENCODE_BUF_SIZE];
 
     if (!content) {
-        snprintf(buf, ENCODE_BUF_SIZE,
-                 "GET %s HTTP/1.0" EOL EOL,
-                 url);
+        snprintf(buf, ENCODE_BUF_SIZE, FORMAT_GET(url, headers, host));
     } else {
-        snprintf(buf, ENCODE_BUF_SIZE,
-                 "POST %s HTTP/1.0" EOL
-                 "%s" EOL
-                 "Host: %s" EOL
-                 "User-Agent: sf3k" EOL
-                 "Accept: */*" EOL
-                 "Content-length: %d" EOL EOL
-                 "%s" EOL EOL,
-                 url, headers, host, strlen(content), content);
-
+        snprintf(buf, ENCODE_BUF_SIZE, FORMAT_POST(url, headers, host, content));
     }
 
     return buf;

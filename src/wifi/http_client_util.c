@@ -73,7 +73,7 @@ int http_client_request_async(async_context_t *context, EXAMPLE_HTTP_REQUEST_T *
     req->settings.headers_done_fn = req->headers_fn ? internal_header_fn : NULL;
     req->settings.result_fn = internal_result_fn;
     async_context_acquire_lock_blocking(context);
-    err_t ret = httpc_get_file_dns(req->hostname, req->port ? req->port : default_port, req->url, &req->settings, internal_recv_fn, req, NULL);
+    err_t ret = __httpc_get_file_dns(req->hostname, req->port ? req->port : default_port, req->url, &req->settings, internal_recv_fn, req, NULL);
     async_context_release_lock(context);
     if (ret != ERR_OK) {
         LOG_ERROR("http request failed: %d", ret);

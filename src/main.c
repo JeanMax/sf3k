@@ -18,7 +18,8 @@
 #include "utils/log.h"
 #include "utils/persist.h"
 #include "wifi/http_client.h"
-#include "wifi/rmrf.fr.h"
+/* #include "wifi/rmrf.fr.h" */
+#include "wifi/brewersfriend.com.h"
 
 #define REFRESH_DELAY_MS 1000
 
@@ -208,8 +209,10 @@ static void wifi_task(void *data) {
         panic("Wi-Fi connect failed");
     }
 
-    const char host[] = HOST__RMRF;
-    const uint8_t tls_cert[] = TLS_ROOT_CERT__RMRF;
+    /* const char host[] = HOST__RMRF; */
+    /* const uint8_t tls_cert[] = TLS_ROOT_CERT__RMRF; */
+    const char host[] = HOST__BREW;
+    const uint8_t tls_cert[] = TLS_ROOT_CERT__BREW;
     t_http_client_conf conf = {
         .host=host,
         .tls_cert=tls_cert,
@@ -218,9 +221,10 @@ static void wifi_task(void *data) {
 
     while (42) {
         vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
-        http_request(&conf, "/pouet", "Content-Type: application/json",
+        http_request(&conf, "/stream/" BREW_KEY,
+                     "Content-Type: application/json" EOL,
                      "{\"name\": \"bob\", \"temp\": 22.2}");
-/* curl -v --http1.0 'https://log.brewersfriend.com/stream/ea84b940e6b68e365c0d9178eb46ee036c79f47a' -X POST -H 'Content-Type: application/json' -d '{"name": "Test3000", "temp": 22.2, "ambient": 27.7, "temp_target": 22, "temp_unit": "C", "hysteresis": 42, "heat_state": "heating", "comment": "pouet"}' */
+/* {"name": "Test3000", "temp": 22.2, "ambient": 27.7, "temp_target": 22, "temp_unit": "C", "hysteresis": 42, "heat_state": "heating", "comment": "pouet"} */
     }
 
     cyw43_arch_deinit(); // never
