@@ -99,11 +99,11 @@
 #define LWIP_SO_RCVTIMEO 1
 #endif
 
-#define LWIP_ALTCP 1
+#define LWIP_ALTCP 0
 
 // If you don't want to use TLS (just a http request) you can avoid linking to mbedtls and remove the following
-#define LWIP_ALTCP_TLS           1
-#define LWIP_ALTCP_TLS_MBEDTLS   1
+#define LWIP_ALTCP_TLS           0
+#define LWIP_ALTCP_TLS_MBEDTLS   0
 
 // Note bug in lwip with LWIP_ALTCP and LWIP_DEBUG
 // https://savannah.nongnu.org/bugs/index.php?62159

@@ -15,7 +15,7 @@
 
 static err_t internal_header_fn(httpc_state_t *connection, void *arg, struct pbuf *hdr, u16_t hdr_len, u32_t content_len) {
     assert(arg);
-    EXAMPLE_HTTP_REQUEST_T *req = (EXAMPLE_HTTP_REQUEST_T*)arg;
+    HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
     if (req->headers_fn) {
         return req->headers_fn(connection, req->callback_arg, hdr, hdr_len, content_len);
     }
@@ -24,7 +24,7 @@ static err_t internal_header_fn(httpc_state_t *connection, void *arg, struct pbu
 
 static err_t internal_recv_fn(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t err) {
     assert(arg);
-    EXAMPLE_HTTP_REQUEST_T *req = (EXAMPLE_HTTP_REQUEST_T*)arg;
+    HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
     if (req->recv_fn) {
         return req->recv_fn(req->callback_arg, conn, p, err);
     }
@@ -33,7 +33,7 @@ static err_t internal_recv_fn(void *arg, struct altcp_pcb *conn, struct pbuf *p,
 
 static void internal_result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_content_len, u32_t srv_res, err_t err) {
     assert(arg);
-    EXAMPLE_HTTP_REQUEST_T *req = (EXAMPLE_HTTP_REQUEST_T*)arg;
+    HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
     LOG_DEBUG("result %d len %lu server_response %lu err %d", httpc_result, rx_content_len, srv_res, err);
     req->complete = true;
     req->result = httpc_result;
@@ -42,33 +42,9 @@ static void internal_result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_
     }
 }
 
-// Override altcp_tls_alloc to set sni
-static struct altcp_pcb *altcp_tls_alloc_sni(void *arg, u8_t ip_type) {
-    assert(arg);
-    EXAMPLE_HTTP_REQUEST_T *req = (EXAMPLE_HTTP_REQUEST_T*)arg;
-    struct altcp_pcb *pcb = altcp_tls_alloc(req->tls_config, ip_type);
-    if (!pcb) {
-        LOG_ERROR("Failed to allocate PCB");
-        return NULL;
-    }
-    mbedtls_ssl_set_hostname(altcp_tls_context(pcb), req->hostname);
-    return pcb;
-}
-
 // Make a http request, complete when req->complete returns true
-int http_client_request_async(async_context_t *context, EXAMPLE_HTTP_REQUEST_T *req) {
-#if LWIP_ALTCP
-    const uint16_t default_port = req->tls_config ? 443 : 80;
-    if (req->tls_config) {
-        if (!req->tls_allocator.alloc) {
-            req->tls_allocator.alloc = altcp_tls_alloc_sni;
-            req->tls_allocator.arg = req;
-        }
-        req->settings.altcp_allocator = &req->tls_allocator;
-    }
-#else
+int http_client_request_async(async_context_t *context, HTTP_REQUEST_T *req) {
     const uint16_t default_port = 80;
-#endif
     req->complete = false;
     req->settings.headers_done_fn = req->headers_fn ? internal_header_fn : NULL;
     req->settings.result_fn = internal_result_fn;
@@ -82,7 +58,7 @@ int http_client_request_async(async_context_t *context, EXAMPLE_HTTP_REQUEST_T *
 }
 
 // Make a http request and only return when it has completed. Returns true on success
-int http_client_request_sync(async_context_t *context, EXAMPLE_HTTP_REQUEST_T *req) {
+int http_client_request_sync(async_context_t *context, HTTP_REQUEST_T *req) {
     assert(req);
     int ret = http_client_request_async(context, req);
     if (ret != 0) {

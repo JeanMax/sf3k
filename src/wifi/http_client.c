@@ -60,20 +60,17 @@ static const char *encode_url(const char *host,
         snprintf(buf, ENCODE_BUF_SIZE, FORMAT_POST(url, headers, host, content));
     }
 
+    LOG_DEBUG("to send: %s", buf);
+
     return buf;
 }
 
-int http_request(t_http_client_conf *conf,
-                 const char *url, const char *headers, const char *content)
+int http_request(const char *host, const char *url,
+                 const char *headers, const char *content)
 {
-    static EXAMPLE_HTTP_REQUEST_T req = {0};
-    req.hostname = conf->host;
-    req.url = encode_url(conf->host, url, headers, content);
+    HTTP_REQUEST_T req = {0};
+    req.hostname = host;
+    req.url = encode_url(host, url, headers, content);
     req.recv_fn = http_client_receive_print_fn; //TODO: param?
-    req.tls_config = altcp_tls_create_config_client(conf->tls_cert, conf->tls_len);
-
-    int pass = http_client_request_sync(cyw43_arch_async_context(), &req);
-    altcp_tls_free_config(req.tls_config);
-
-    return pass;
+    return http_client_request_sync(cyw43_arch_async_context(), &req);;
 }

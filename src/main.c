@@ -18,8 +18,6 @@
 #include "utils/log.h"
 #include "utils/persist.h"
 #include "wifi/http_client.h"
-/* #include "wifi/rmrf.fr.h" */
-#include "wifi/brewersfriend.com.h"
 
 #define REFRESH_DELAY_MS 1000
 
@@ -30,7 +28,6 @@
 #endif
 #define WATCHDOG_DELAY_MS 1000
 
-#define WIFI_CONNECT_TIMEOUT_MS 30000
 #define HTTP_REQUEST_DELAY_MS (15 * 60 * 1000)
 
 //TODO: move these
@@ -39,6 +36,21 @@ volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
+
+
+volatile bool g_wifi_connected = false;
+#define WIFI_CONNECT_TIMEOUT_MS 30000
+
+static int wait_for_wifi(int timeout_ms) {
+    uint sleep_inc = 100;
+    for (int i = 0; i < timeout_ms; i += sleep_inc) {
+        if (g_wifi_connected) {
+            return 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
+    }
+    return -1;
+}
 
 
 #define USB_DEFAULT_TIMEOUT_MS 3000
@@ -56,6 +68,11 @@ static int wait_for_usb(int timeout_ms) {
     }
     return -1;
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 
 static void thermo_task(void *data) {
@@ -209,22 +226,26 @@ static void wifi_task(void *data) {
         panic("Wi-Fi connect failed");
     }
 
-    /* const char host[] = HOST__RMRF; */
-    /* const uint8_t tls_cert[] = TLS_ROOT_CERT__RMRF; */
-    const char host[] = HOST__BREW;
-    const uint8_t tls_cert[] = TLS_ROOT_CERT__BREW;
-    t_http_client_conf conf = {
-        .host=host,
-        .tls_cert=tls_cert,
-        .tls_len=sizeof(tls_cert)
-    };
+    g_wifi_connected = true;
+    LOG_INFO("Wi-Fi connected!");
+    vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
 
     while (42) {
-        vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
-        http_request(&conf, "/stream/" BREW_KEY,
-                     "Content-Type: application/json" EOL,
-                     "{\"name\": \"bob\", \"temp\": 22.2}");
+        LOG_INFO("Sending http request...");
+        int ret = http_request(
+                               /* "rmrf.fr", */
+                               "log.brewersfriend.com",
+                               "/stream/" BREW_KEY,
+                               "Content-Type: application/json" EOL,
+                               "{\"name\": \"bob\", \"temp\": 22.2}");
 /* {"name": "Test3000", "temp": 22.2, "ambient": 27.7, "temp_target": 22, "temp_unit": "C", "hysteresis": 42, "heat_state": "heating", "comment": "pouet"} */
+        if (ret) {
+          LOG_ERROR("request failed: %d", ret);
+        } else {
+          LOG_INFO("request ok!");
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
     }
 
     cyw43_arch_deinit(); // never
@@ -245,7 +266,8 @@ static void led_task(void *data) {
     LOG_INFO("led task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    vTaskDelay(pdMS_TO_TICKS(2000)); // wait for init in wifi_task
+    wait_for_wifi(WIFI_CONNECT_TIMEOUT_MS * 2);
+    LOG_DEBUG("led init done");
 
     if (watchdog_enable_caused_reboot()) {
         LOG_ERROR("Rebooted by Watchdog!");
@@ -264,6 +286,11 @@ static void led_task(void *data) {
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 
 int main() {

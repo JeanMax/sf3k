@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#ifndef EXAMPLE_HTTP_CLIENT_UTIL_H
-#define EXAMPLE_HTTP_CLIENT_UTIL_H
+#ifndef HTTP_CLIENT_UTIL_H
+#define HTTP_CLIENT_UTIL_H
 
 #include "http_client_lwip.h"
 
@@ -13,7 +13,7 @@
 /** @brief Parameters used to make HTTP request
  *  @ingroup pico_lwip
  */
-typedef struct EXAMPLE_HTTP_REQUEST {
+typedef struct HTTP_REQUEST {
     /**
      * The name of the host, e.g. www.raspberrypi.com
      */
@@ -45,17 +45,6 @@ typedef struct EXAMPLE_HTTP_REQUEST {
      * The port to use. A default port is chosen if this is set to zero
      */
     uint16_t port;
-#if LWIP_ALTCP && LWIP_ALTCP_TLS
-    /**
-     * TLS configuration, can be null or set to a correctly configured tls configuration.
-     * e.g altcp_tls_create_config_client(NULL, 0) would use https without a certificate
-     */
-    struct altcp_tls_config *tls_config;
-    /**
-     * TLS allocator, used internall for setting TLS server name indication
-     */
-    altcp_allocator_t tls_allocator;
-#endif
     /**
      * LwIP HTTP client settings
      */
@@ -69,7 +58,7 @@ typedef struct EXAMPLE_HTTP_REQUEST {
      */
     httpc_result_t result;
 
-} EXAMPLE_HTTP_REQUEST_T;
+} HTTP_REQUEST_T;
 
 struct async_context;
 
@@ -86,7 +75,7 @@ struct async_context;
  *
  * @see async_context
  */
-int http_client_request_async(struct async_context *context, EXAMPLE_HTTP_REQUEST_T *req);
+int http_client_request_async(struct async_context *context, HTTP_REQUEST_T *req);
 
 /** @brief Perform a http request synchronously
  *  @ingroup pico_lwip
@@ -97,6 +86,6 @@ int http_client_request_async(struct async_context *context, EXAMPLE_HTTP_REQUES
  * @param req HTTP request parameters. As a minimum this should be initialised to zero with hostname and url set to valid values
  * @param result Returns the overall result of the http request when complete. Zero indicates success.
  */
-int http_client_request_sync(struct async_context *context, EXAMPLE_HTTP_REQUEST_T *req);
+int http_client_request_sync(struct async_context *context, HTTP_REQUEST_T *req);
 
 #endif
