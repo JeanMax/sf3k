@@ -6,7 +6,6 @@
 
 #include "PinConfig.h"
 #include "driver/led.h"
-/* #include "driver/max6675.h" */
 #include "driver/dht.h"
 #include "driver/relay.h"
 #include "driver/photor.h"
@@ -81,18 +80,6 @@ static void thermo_task(void *data) {
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("thermo task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
-
-    /* t_max6675_conf conf = { */
-    /*     .spi_bus = THERMO_SPI_BUS, */
-    /*     .baudrate = THERMO_SPI_BAUDRATE, */
-    /*     .so_pin = THERMO_SO_GPIO, */
-    /*     .sck_pin = THERMO_SCK_GPIO, */
-    /*     .cs_pin = THERMO_CS_GPIO, */
-    /* }; */
-
-    /* max6675_init(&conf); */
-    /* float tmp_temp = -42; */
-    /* int ret = 0; */
 
     init_dht(DHT_GPIO);
     float tmp_temp = -42;
@@ -203,6 +190,7 @@ static void menu_task(void *data) {
     vTaskDelete(NULL);
 }
 
+#define CONTENT_BUF_SIZE 512
 
 static void wifi_task(void *data) {
     (void)data;
@@ -230,15 +218,36 @@ static void wifi_task(void *data) {
     LOG_INFO("Wi-Fi connected!");
     vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
 
+    while (!TEMP_OK(shared__current_temp)) {
+        LOG_DEBUG("Waiting for temp...");
+        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+    }
+
+    char json_content[CONTENT_BUF_SIZE];
+
     while (42) {
         LOG_INFO("Sending http request...");
+        snprintf(json_content, CONTENT_BUF_SIZE,
+                 "{"
+                 "\"name\": \"SF3K\", "
+                 "\"temp\": %.2f, "
+                 "\"ambient\": %.2f, "
+                 "\"temp_unit\": \"C\", "
+                 "\"comment\": \"goal=%d, hot_range=%.2f, cool_range=%.2f, state:%s\""
+                 "}",
+                 shared__current_temp,
+                 read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
+                 shared__goal_temp,
+                 shared__hot_range,
+                 shared__cool_range,
+                 shared__state == WAIT ? "off" :
+                 (shared__state == HEAT ? "heating" : "cooling"));
         int ret = http_request(
                                /* "rmrf.fr", */
                                "log.brewersfriend.com",
                                "/stream/" BREW_KEY,
                                "Content-Type: application/json" EOL,
-                               "{\"name\": \"bob\", \"temp\": 22.2}");
-/* {"name": "Test3000", "temp": 22.2, "ambient": 27.7, "temp_target": 22, "temp_unit": "C", "hysteresis": 42, "heat_state": "heating", "comment": "pouet"} */
+                               json_content);
         if (ret) {
           LOG_ERROR("request failed: %d", ret);
         } else {
@@ -263,15 +272,15 @@ static void led_task(void *data) {
     vTaskCoreAffinitySet(NULL, 1);
 
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
+    if (watchdog_enable_caused_reboot()) {
+        LOG_ERROR("Rebooted by Watchdog!");
+    }
     LOG_INFO("led task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
     wait_for_wifi(WIFI_CONNECT_TIMEOUT_MS * 2);
     LOG_DEBUG("led init done");
 
-    if (watchdog_enable_caused_reboot()) {
-        LOG_ERROR("Rebooted by Watchdog!");
-    }
     watchdog_enable(WATCHDOG_DELAY_MS, WATCHDOG_STOP_ON_DEBUG);
 
     while (42) {

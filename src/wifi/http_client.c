@@ -15,14 +15,12 @@ static err_t http_client_receive_print_fn(__unused void *arg, __unused struct al
     if (err) {
         LOG_ERROR("Error in http request response: %d", err);
     }
-#ifndef NDEBUG
     LOG_DEBUG("Http request response:");
     u16_t offset = 0;
     while (offset < p->tot_len) {
         char c = (char)pbuf_get_at(p, offset++);
         LOG_CHR(c);
     }
-#endif
     return ERR_OK;
 }
 
@@ -47,7 +45,7 @@ static err_t http_client_receive_print_fn(__unused void *arg, __unused struct al
     "%s" EOL EOL,                                                   \
     url, headers ? headers : "", host, strlen(content), content
 
-#define ENCODE_BUF_SIZE 2048
+#define ENCODE_BUF_SIZE 1024
 
 static const char *encode_url(const char *host,
                               const char *url, const char *headers, const char *content)
@@ -60,7 +58,7 @@ static const char *encode_url(const char *host,
         snprintf(buf, ENCODE_BUF_SIZE, FORMAT_POST(url, headers, host, content));
     }
 
-    LOG_DEBUG("to send: %s", buf);
+    LOG_DEBUG("to send:\n%s", buf);
 
     return buf;
 }
@@ -71,6 +69,8 @@ int http_request(const char *host, const char *url,
     HTTP_REQUEST_T req = {0};
     req.hostname = host;
     req.url = encode_url(host, url, headers, content);
-    req.recv_fn = http_client_receive_print_fn; //TODO: param?
+#ifndef NDEBUG
+    req.recv_fn = http_client_receive_print_fn;
+#endif
     return http_client_request_sync(cyw43_arch_async_context(), &req);;
 }
