@@ -23,8 +23,10 @@ endif()
 # ====================================================================================
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 set(PICO_PLATFORM rp2350 CACHE STRING "Board name")
-set(WIFI_SSID Linternet CACHE STRING "Wifi SSID")
-set(WIFI_PASSWORD internet974 CACHE STRING "Wifi PASS")
+# these should be set in build.sh:
+set(WIFI_SSID "${WIFI_SSID}" CACHE INTERNAL "Wifi SSID")
+set(WIFI_PASSWORD "${WIFI_PASSWORD}" CACHE INTERNAL "Wifi PASS")
+set(BREW_KEY "${BREW_KEY}" CACHE INTERNAL "BrewersFriend API key")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -41,7 +43,7 @@ target_compile_definitions(freertos_config INTERFACE projCOVERAGE_TEST=0)
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS)
 include(FreeRTOS_Kernel_Import.cmake)
 
-file(GLOB src "src/*.c" "src/*/*.c")
+file(GLOB src "src/*.c" "src/*/*.c" "src/*/*/*.c")
 add_executable(sf3k ${src})
 target_compile_options(sf3k PRIVATE "-Wall" "-Wextra")
 target_link_options(sf3k PRIVATE "-Wall" "-Wextra")
@@ -54,6 +56,14 @@ pico_set_program_version(sf3k "0.1")
 pico_enable_stdio_uart(sf3k 0)
 pico_enable_stdio_usb(sf3k 1)
 
+target_compile_definitions(sf3k PRIVATE
+    WIFI_SSID=\"${WIFI_SSID}\"
+    WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
+    BREW_KEY=\"${BREW_KEY}\"
+    ALTCP_MBEDTLS_AUTHMODE=MBEDTLS_SSL_VERIFY_REQUIRED
+    CYW43_TASK_STACK_SIZE=2048)
+
+
 target_include_directories(sf3k PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_SOURCE_DIR}/include
@@ -61,7 +71,10 @@ target_include_directories(sf3k PRIVATE
 
 target_link_libraries(sf3k
     pico_stdlib
-    pico_cyw43_arch_none
+    pico_cyw43_arch_lwip_sys_freertos
+    pico_lwip_http
+    pico_lwip_mbedtls
+    pico_mbedtls
     hardware_spi  # TODO: remove if removing max6675
     hardware_i2c
     hardware_adc
@@ -72,5 +85,15 @@ target_link_libraries(sf3k
     pico_multicore
     FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4)
+
+# Ignore warnings from lwip code
+set_source_files_properties(
+    ${PICO_LWIP_PATH}/src/apps/altcp_tls/altcp_tls_mbedtls.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-result")
+set_source_files_properties(
+    ${PICO_SDK_PATH}/src/rp2_common/pico_async_context/async_context_freertos.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-parameter")
 
 pico_add_extra_outputs(sf3k)
