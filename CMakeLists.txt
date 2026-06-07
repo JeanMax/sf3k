@@ -83,7 +83,6 @@ target_link_libraries(sf3k
     hardware_sync
     pico_unique_id
     pico_multicore
-    FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4)
 
 # Ignore warnings from lwip code

@@ -17,6 +17,7 @@
 #include "utils/persist.h"
 #include "wifi/wifi.h"
 #include "wifi/http_client/http_client.h"
+#include "wifi/udp_server/udp_server.h"
 
 #define REFRESH_DELAY_MS 1000
 
@@ -234,6 +235,11 @@ static void wifi_task(void *data) {
     }
     LOG_INFO("Wi-Fi connected!");
 
+    struct udp_pcb *udp = udp_server_init();
+    if (!udp) {
+        panic("UDP init failed");
+    }
+
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
@@ -263,10 +269,15 @@ static void wifi_task(void *data) {
                 /*     panic("Wi-Fi re-init failed"); */
                 /* } */
                 /* LOG_INFO("wifi re-init'ed"); */
+                udp_server_deinit(udp);
                 if (wifi_connect()) {
                     panic("Wi-Fi re-connect failed");
                 }
                 LOG_INFO("Wi-Fi connected!");
+                udp = udp_server_init();
+                if (!udp) {
+                    panic("UDP init failed");
+                }
                 vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
                 continue;
             /* } */
