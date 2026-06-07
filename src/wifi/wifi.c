@@ -34,6 +34,10 @@ int wifi_connect()
     return 0;
 }
 
+bool is_wifi_connected() {
+    return g_wifi_connected;
+}
+
 void led(bool state) {
     if (g_wifi_connected) {
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, state);

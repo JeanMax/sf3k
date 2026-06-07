@@ -45,7 +45,7 @@ volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
 static int wait_for_wifi(int timeout_ms) {
     uint sleep_inc = 100;
     for (int i = 0; i < timeout_ms; i += sleep_inc) {
-        if (g_wifi_connected) {
+        if (is_wifi_connected()) {
             return 0;
         }
         vTaskDelay(pdMS_TO_TICKS(sleep_inc));
@@ -94,7 +94,7 @@ static void thermo_task(void *data) {
         if (!ret) {
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
-            LOG_INFO("Temp: %.2f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+            LOG_INFO("Temp: %.1f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
             LOG_DEBUG("Humidity: %d%%", (int)tmp_hum);
         } else {
             LOG_WARNING("NO TEMP: %d", ret);
@@ -144,7 +144,12 @@ static void relay_task(void *data) {
     }
 
     while (42) {
-        ctrl_temp(&hot_relay, &cool_relay);
+        if (is_udp_asking_pause()) {
+            switch_relay(&hot_relay, false);
+            switch_relay(&cool_relay, false);
+        } else {
+            ctrl_temp(&hot_relay, &cool_relay);
+        }
         LOG_INFO("Relay: %s", state2str[shared__state]);
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
 
@@ -201,10 +206,10 @@ static char *json_encode()
     snprintf(json_content, CONTENT_BUF_SIZE,
              "{"
              "\"name\": \"SF3K\", "
-             "\"temp\": %.2f, "
-             "\"ambient\": %.2f, "
+             "\"temp\": %.1f, "
+             "\"ambient\": %.1f, "
              "\"temp_unit\": \"C\", "
-             "\"comment\": \"goal=%d, hot_range=%.2f, cool_range=%.2f, state=%s\""
+             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s\""
              "}",
              shared__current_temp,
              read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
@@ -212,7 +217,7 @@ static char *json_encode()
              shared__hot_range,
              shared__cool_range,
              shared__state == WAIT ? "off" :
-             (shared__state == HEAT ? "heating" : "cooling"));
+                 (shared__state == HEAT ? "heating" : "cooling"));
     return json_content;
 }
 
@@ -239,6 +244,7 @@ static void wifi_task(void *data) {
     if (!udp) {
         panic("UDP init failed");
     }
+    LOG_INFO("UDP up!");
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");

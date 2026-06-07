@@ -1,46 +1,119 @@
 #include "udp_server.h"
 
+#include <pico/bootrom.h>
 #include <string.h>
+
+#include "driver/photor.h"
+#include "utils/persist.h"
+#include "utils/log.h"
+#include "shared.h"
+#include "PinConfig.h"
 
 #define RESPONSE_LEN_MAX 512
 
+volatile bool g_is_paused = false;
 
-static void help_fun(const char *arg, char *response_buf)
+static int help_fun(__unused const char *arg, char *response_buf)
 {
-
+    return snprintf(response_buf, RESPONSE_LEN_MAX,
+                    "SF3K commands:\n\n"
+                    "help -- you found this already\n"
+                    "status -- show values for various sensors and settings\n"
+                    "goal N -- set the goal temperature to N (int)\n"
+                    "cool_range N -- set the cool_range value to N (float)\n"
+                    "hot_range N -- set the hot_range value to N (float)\n"
+                    "reboot -- reboot the pi to app\n"
+                    "bootsel -- reboot the pi to bootsel\n"
+                    "pause -- stop toggling relays until this command is issued again\n\n");
 }
 
-static void status_fun(const char *arg, char *response_buf)
+static int status_fun(__unused const char *arg, char *response_buf)
 {
-
+    return snprintf(response_buf, RESPONSE_LEN_MAX,
+                    "temp=%.1f, "
+                    "ambient=%.1f, "
+                    "goal=%d, "
+                    "hot_range=%.1f, "
+                    "cool_range=%.1f, "
+                    "pause=%d, "
+                    "state=%s\n",
+                    shared__current_temp,
+                    read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
+                    shared__goal_temp,
+                    shared__hot_range,
+                    shared__cool_range,
+                    g_is_paused,
+                    shared__state == WAIT ? "off" :
+                        (shared__state == HEAT ? "heating" : "cooling"));
 }
 
-static void goal_fun(const char *arg, char *response_buf)
+static int goal_fun(const char *arg, char *response_buf)
 {
+    int old = shared__goal_temp;
+    int new;
 
+    int ret = sscanf(arg, "%d", &new);
+    if (ret > 0) {
+        shared__goal_temp = new;
+        save_persistent_config();
+        return sprintf(response_buf, "goal=%d (prev=%d)\n", new, old);
+    }
+    return sprintf(response_buf, "goal: invalid arg '%s'\n", arg);
 }
 
-static void cool_range_fun(const char *arg, char *response_buf)
+static int cool_range_fun(const char *arg, char *response_buf)
 {
+    float old = shared__cool_range;
+    float new;
 
+    int ret = sscanf(arg, "%f", &new);
+    if (ret > 0) {
+        shared__cool_range = new;
+        save_persistent_config();
+        return sprintf(response_buf, "cool_range=%.1f (prev=%.1f)\n", new, old);
+    }
+    return sprintf(response_buf, "cool_range: invalid arg '%s'\n", arg);
 }
 
-static void hot_range_fun(const char *arg, char *response_buf)
+static int hot_range_fun(const char *arg, char *response_buf)
 {
+    float old = shared__hot_range;
+    float new;
 
+    int ret = sscanf(arg, "%f", &new);
+    if (ret > 0) {
+        shared__hot_range = new;
+        save_persistent_config();
+        return sprintf(response_buf, "hot_range=%.1f (prev=%.1f)\n", new, old);
+    }
+    return sprintf(response_buf, "hot_range: invalid arg '%s'\n", arg);
 }
 
-static void reboot_fun(const char *arg, char *response_buf)
+static int reboot_fun(__unused const char *arg, __unused char *response_buf)
 {
-
+    LOG_INFO("Waiting to be rebooted by watchdog");
+    while(42) {}
+    return 0;
 }
 
-static void pause_fun(const char *arg, char *response_buf)
+static int bootsel_fun(__unused const char *arg, __unused char *response_buf)
 {
-
+    LOG_INFO("Bootsel");
+    reset_usb_boot(0, 0);
+    return 0;
 }
 
-#define MAX_CMD 7
+static int pause_fun(__unused const char *arg, char *response_buf)
+{
+    g_is_paused ^= 1;
+    return sprintf(response_buf, "pause=%d (prev=%d)\n", g_is_paused, g_is_paused ^ 1);
+}
+
+bool is_udp_asking_pause() {
+    return g_is_paused;
+}
+
+#define MAX_CMD 8
 #define CMD_LEN_MAX 16
 
 char cmd_list[MAX_CMD][CMD_LEN_MAX] =  {
@@ -50,6 +123,7 @@ char cmd_list[MAX_CMD][CMD_LEN_MAX] =  {
     "cool_range",
     "hot_range",
     "reboot",
+    "bootsel",
     "pause",
 };
 
@@ -60,52 +134,71 @@ t_cmd_callback *cmd_fun[MAX_CMD] =  {
     cool_range_fun,
     hot_range_fun,
     reboot_fun,
+    bootsel_fun,
     pause_fun,
 };
 
 
+#define IS_SPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\n')
 
-static char *run_cmd(char *payload)
+static int run_cmd(const char *payload, int payload_len, char *response_buf)
 {
-    static char response_buf[RESPONSE_LEN_MAX] = {0};
-    char *cmd = payload;
-    char *arg = NULL;
-
-    while (*payload) {
-        if (*payload == ' ' || *payload == '\t') {
-            *payload = 0;
-            arg = payload + 1;
-        } else if (arg) {
-            break;
-        }
-        payload++;
+    char *s = (char *)payload;
+    while (*s && !IS_SPACE(*s)
+           && (s - payload) < CMD_LEN_MAX
+           && (s - payload) < payload_len) {
+        s++;
     }
+
+    char cmd[CMD_LEN_MAX] = {0};
+    memcpy(cmd, payload, s - payload);
+
+    if (!*cmd) {
+        return 0;
+    }
+
+    while (*s && IS_SPACE(*s)
+           && (s - payload) < payload_len) {
+        s++;
+    }
+
+    char *arg_start = s;
+    while (*s && !IS_SPACE(*s)
+           && (s - arg_start) < CMD_LEN_MAX
+           && (s - payload) < payload_len) {
+        s++;
+    }
+
+    char arg[CMD_LEN_MAX] = {0};
+    memcpy(arg, arg_start, s - arg_start);
+
+    LOG_DEBUG("UDP: received [%s] [%s]", cmd, arg);
 
     for (int i = 0; i < MAX_CMD; i++) {
         if (!strcmp(cmd, cmd_list[i])) {
-            cmd_fun[i](arg, response_buf);
+            return cmd_fun[i](arg, response_buf);
         }
     }
 
-    return response_buf;
+    return sprintf(response_buf, "sf3k: command not found: '%s' (try 'help'?)\n", cmd);
 }
 
 static void udp_receive_callback(__unused void *arg, struct udp_pcb *upcb,
                                  struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
-    struct pbuf *txBuf;
-    char buf[100];
-    int len = sprintf(buf, "Hello %s From UDP SERVER\n",
-                      (char *)p->payload);
+    static char response_buf[RESPONSE_LEN_MAX] = {0};
 
-    txBuf = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
-    pbuf_take(txBuf, buf, len);
+    int len = run_cmd((char *)p->payload, p->len, response_buf);
+    if (len > 0) {
+        struct pbuf *txBuf = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
+        pbuf_take(txBuf, response_buf, len);
 
-    udp_connect(upcb, addr, port);
-    udp_send(upcb, txBuf);
-    udp_disconnect(upcb);
+        udp_connect(upcb, addr, port);
+        udp_send(upcb, txBuf);
+        udp_disconnect(upcb);
 
-    pbuf_free(txBuf);
+        pbuf_free(txBuf);
+    }
     pbuf_free(p);
 }
 
