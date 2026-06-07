@@ -43,7 +43,7 @@ target_compile_definitions(freertos_config INTERFACE projCOVERAGE_TEST=0)
 set(FREERTOS_KERNEL_PATH ${CMAKE_SOURCE_DIR}/FreeRTOS)
 include(FreeRTOS_Kernel_Import.cmake)
 
-file(GLOB src "src/*.c" "src/*/*.c")
+file(GLOB src "src/*.c" "src/*/*.c" "src/*/*/*.c")
 add_executable(sf3k ${src})
 target_compile_options(sf3k PRIVATE "-Wall" "-Wextra")
 target_link_options(sf3k PRIVATE "-Wall" "-Wextra")
@@ -91,5 +91,9 @@ set_source_files_properties(
     ${PICO_LWIP_PATH}/src/apps/altcp_tls/altcp_tls_mbedtls.c
     PROPERTIES
     COMPILE_OPTIONS "-Wno-unused-result")
+set_source_files_properties(
+    ${PICO_SDK_PATH}/src/rp2_common/pico_async_context/async_context_freertos.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-parameter")
 
 pico_add_extra_outputs(sf3k)

@@ -5,7 +5,6 @@
 #include <pico/cyw43_arch.h>
 
 #include "PinConfig.h"
-#include "driver/led.h"
 #include "driver/dht.h"
 #include "driver/relay.h"
 #include "driver/photor.h"
@@ -16,7 +15,8 @@
 #include "ui/oled.h"
 #include "utils/log.h"
 #include "utils/persist.h"
-#include "wifi/http_client.h"
+#include "wifi/wifi.h"
+#include "wifi/http_client/http_client.h"
 
 #define REFRESH_DELAY_MS 1000
 
@@ -37,7 +37,8 @@ volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
 
 
-volatile bool g_wifi_connected = false;
+//TODO: add a sleep.c, move wifi wait to wifi.c, move usb wait to log.c
+
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 
 static int wait_for_wifi(int timeout_ms) {
@@ -190,7 +191,29 @@ static void menu_task(void *data) {
     vTaskDelete(NULL);
 }
 
+//TODO: move to http_client.c ?
 #define CONTENT_BUF_SIZE 512
+static char *json_encode()
+{
+    static char json_content[CONTENT_BUF_SIZE];
+
+    snprintf(json_content, CONTENT_BUF_SIZE,
+             "{"
+             "\"name\": \"SF3K\", "
+             "\"temp\": %.2f, "
+             "\"ambient\": %.2f, "
+             "\"temp_unit\": \"C\", "
+             "\"comment\": \"goal=%d, hot_range=%.2f, cool_range=%.2f, state=%s\""
+             "}",
+             shared__current_temp,
+             read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
+             shared__goal_temp,
+             shared__hot_range,
+             shared__cool_range,
+             shared__state == WAIT ? "off" :
+             (shared__state == HEAT ? "heating" : "cooling"));
+    return json_content;
+}
 
 static void wifi_task(void *data) {
     (void)data;
@@ -198,71 +221,65 @@ static void wifi_task(void *data) {
     // -> core 1
     vTaskCoreAffinitySet(NULL, 1);
 
-    if (cyw43_arch_init()) {
+    if (wifi_init()) {
         panic("Wi-Fi init failed");
     }
-    led(true);
 
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     LOG_INFO("wifi task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    cyw43_arch_enable_sta_mode();
-    if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
-                                           CYW43_AUTH_WPA2_AES_PSK,
-                                           WIFI_CONNECT_TIMEOUT_MS)) {
+    if (wifi_connect()) {
         panic("Wi-Fi connect failed");
     }
-
-    g_wifi_connected = true;
     LOG_INFO("Wi-Fi connected!");
-    vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }
 
-    char json_content[CONTENT_BUF_SIZE];
+    vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
 
     while (42) {
+        //TODO: log time
         LOG_INFO("Sending http request...");
-        snprintf(json_content, CONTENT_BUF_SIZE,
-                 "{"
-                 "\"name\": \"SF3K\", "
-                 "\"temp\": %.2f, "
-                 "\"ambient\": %.2f, "
-                 "\"temp_unit\": \"C\", "
-                 "\"comment\": \"goal=%d, hot_range=%.2f, cool_range=%.2f, state:%s\""
-                 "}",
-                 shared__current_temp,
-                 read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
-                 shared__goal_temp,
-                 shared__hot_range,
-                 shared__cool_range,
-                 shared__state == WAIT ? "off" :
-                 (shared__state == HEAT ? "heating" : "cooling"));
         int ret = http_request(
                                /* "rmrf.fr", */
                                "log.brewersfriend.com",
                                "/stream/" BREW_KEY,
                                "Content-Type: application/json" EOL,
-                               json_content);
-        if (ret) {
-          LOG_ERROR("request failed: %d", ret);
+                               json_encode());
+        if (!ret) {
+            LOG_INFO("request ok!");
         } else {
-          LOG_INFO("request ok!");
+            LOG_ERROR("request failed: %d", ret);
+            //TODO: the return code seems fucked (found to this point: 5, then lots of 3)
+            /* if (ret == ERR_CLSD || ret == ERR_ABRT || ret == ERR_RST) { */
+                LOG_INFO("trying to reconnect wifi");
+                /* wifi_deinit(); */
+                /* LOG_INFO("wifi de-init'ed"); */
+                /* if (wifi_init()) { */
+                /*     panic("Wi-Fi re-init failed"); */
+                /* } */
+                /* LOG_INFO("wifi re-init'ed"); */
+                if (wifi_connect()) {
+                    panic("Wi-Fi re-connect failed");
+                }
+                LOG_INFO("Wi-Fi connected!");
+                vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
+                continue;
+            /* } */
         }
 
         vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
     }
 
-    cyw43_arch_deinit(); // never
+    wifi_deinit(); // never
 
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
-
 
 
 static void led_task(void *data) {
@@ -283,11 +300,11 @@ static void led_task(void *data) {
 
     watchdog_enable(WATCHDOG_DELAY_MS, WATCHDOG_STOP_ON_DEBUG);
 
+    bool led_state = false;
+
     while (42) {
-        led(false);
-        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
-        watchdog_update();
-        led(true);
+        led(led_state);
+        led_state ^= 1;
         vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
         watchdog_update();
     }
