@@ -34,7 +34,8 @@ static err_t internal_recv_fn(void *arg, struct altcp_pcb *conn, struct pbuf *p,
 static void internal_result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_content_len, u32_t srv_res, err_t err) {
     assert(arg);
     HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
-    LOG_DEBUG("result %d len %lu server_response %lu err %d", httpc_result, rx_content_len, srv_res, err);
+    LOG_DEBUG("result %d len %lu server_response %lu err %d",
+              httpc_result, rx_content_len, srv_res, err);
     req->complete = true;
     req->result = httpc_result;
     if (req->result_fn) {

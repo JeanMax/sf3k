@@ -221,6 +221,36 @@ static char *json_encode()
     return json_content;
 }
 
+// deco udp if non-NULL, connect wifi + udp, and wait for LINK_UP
+static struct udp_pcb *reconnect(struct udp_pcb *udp) {
+    LOG_INFO("trying to reconnect wifi");
+    if (udp) {
+        udp_server_deinit(udp);
+    }
+    if (wifi_connect()) {
+        panic("Wi-Fi connect failed");
+    }
+    LOG_INFO("Wi-Fi connected!");
+    udp = udp_server_init();
+    if (!udp) {
+        panic("UDP init failed");
+    }
+    LOG_INFO("UDP up!");
+
+    LOG_INFO("waiting for LINK_UP...");
+    uint sleep_inc = 100;
+    for (int i = 0; i < WIFI_CONNECT_TIMEOUT_MS * 2; i += sleep_inc) {
+        int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (wifi_status == CYW43_LINK_UP) {
+            LOG_INFO("LINK_UP!");
+            break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
+    }
+
+    return udp;
+}
+
 static void wifi_task(void *data) {
     (void)data;
     // the http server might need to edit config, so flash access is required,
@@ -235,58 +265,36 @@ static void wifi_task(void *data) {
     LOG_INFO("wifi task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    if (wifi_connect()) {
-        panic("Wi-Fi connect failed");
-    }
-    LOG_INFO("Wi-Fi connected!");
-
-    struct udp_pcb *udp = udp_server_init();
-    if (!udp) {
-        panic("UDP init failed");
-    }
-    LOG_INFO("UDP up!");
+    struct udp_pcb *udp = reconnect(NULL);
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
     }
 
-    vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
-
     while (42) {
         //TODO: log time
+        int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (wifi_status != CYW43_LINK_UP) {
+            udp = reconnect(udp);
+            vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
+            continue;
+        }
+
         LOG_INFO("Sending http request...");
-        int ret = http_request(
-                               /* "rmrf.fr", */
-                               "log.brewersfriend.com",
+        int ret = http_request("log.brewersfriend.com",
                                "/stream/" BREW_KEY,
                                "Content-Type: application/json" EOL,
                                json_encode());
         if (!ret) {
             LOG_INFO("request ok!");
         } else {
-            LOG_ERROR("request failed: %d", ret);
-            //TODO: the return code seems fucked (found to this point: 5, then lots of 3)
-            /* if (ret == ERR_CLSD || ret == ERR_ABRT || ret == ERR_RST) { */
-                LOG_INFO("trying to reconnect wifi");
-                /* wifi_deinit(); */
-                /* LOG_INFO("wifi de-init'ed"); */
-                /* if (wifi_init()) { */
-                /*     panic("Wi-Fi re-init failed"); */
-                /* } */
-                /* LOG_INFO("wifi re-init'ed"); */
-                udp_server_deinit(udp);
-                if (wifi_connect()) {
-                    panic("Wi-Fi re-connect failed");
-                }
-                LOG_INFO("Wi-Fi connected!");
-                udp = udp_server_init();
-                if (!udp) {
-                    panic("UDP init failed");
-                }
-                vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
-                continue;
-            /* } */
+            if (ret > 0) {  // httpc_result_t;
+                LOG_ERROR("request failed: %d (httpc_result_t: ignore)", ret);
+            } else {  // err_t
+                LOG_ERROR("request failed: %d (err_t: reconnect)", ret);
+                udp = reconnect(udp);
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));

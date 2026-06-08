@@ -70,11 +70,6 @@
 #define HTTPC_DEBUG_REQUEST         0
 #endif
 
-/** This string is passed in the HTTP header as "User-Agent: " */
-#ifndef HTTPC_CLIENT_AGENT
-#define HTTPC_CLIENT_AGENT "lwIP/" LWIP_VERSION_STRING " (http://savannah.nongnu.org/projects/lwip)"
-#endif
-
 /* the various debug levels for this file */
 #define HTTPC_DEBUG_TRACE        (HTTPC_DEBUG | LWIP_DBG_TRACE)
 #define HTTPC_DEBUG_STATE        (HTTPC_DEBUG | LWIP_DBG_STATE)
@@ -83,7 +78,7 @@
 #define HTTPC_DEBUG_SERIOUS      (HTTPC_DEBUG | LWIP_DBG_LEVEL_SERIOUS)
 
 #define HTTPC_POLL_INTERVAL     1
-#define HTTPC_POLL_TIMEOUT      30 /* 15 seconds */
+#define HTTPC_POLL_TIMEOUT      60 /* 30 seconds */
 
 #define HTTPC_CONTENT_LEN_INVALID 0xFFFFFFFF
 

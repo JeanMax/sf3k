@@ -18,11 +18,14 @@ void wifi_deinit()
 {
     led(false);
     g_wifi_connected = false;
+    cyw43_arch_disable_sta_mode(); //disconnect
     cyw43_arch_deinit();
 }
 
 int wifi_connect()
 {
+    led(false);
+    g_wifi_connected = false;
     int ret = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,
                                                  CYW43_AUTH_WPA2_AES_PSK,
                                                  WIFI_CONNECT_TIMEOUT_MS);
