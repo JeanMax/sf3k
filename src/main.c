@@ -76,6 +76,7 @@ static void thermo_task(void *data) {
     float tmp_temp = -42;
     float tmp_hum = -42;
     int ret = 0;
+    int fail = 0;
 
     while (42) {
         /* ret = max6675_get_temp(&conf, &tmp_temp); */
@@ -83,10 +84,15 @@ static void thermo_task(void *data) {
         if (!ret) {
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
-            LOG_INFO("Temp: %.1f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+            LOG_INFO("Temp: %.1f - Mean: %.2f", tmp_temp, shared__current_temp);
             LOG_DEBUG("Humidity: %d%%", (int)tmp_hum);
+            fail = 0;
         } else {
             LOG_WARNING("NO TEMP: %d", ret);
+            fail++;
+            if (fail > MAX_TEMP_HISTORY) {
+                panic("NO TEMP!");
+            }
         }
         SLEEP_MS(DHT_READ_DELAY_MS);
     }

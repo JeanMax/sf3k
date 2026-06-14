@@ -36,7 +36,7 @@ Sensing period                        Average: 2s
 
 // Data validator
 #define TEMP_OK(t)  ((t) > -20 && (t) < 60)
-#define HYGRO_OK(h) ((h) > 30 && (h) <= 100)
+#define HYGRO_OK(h) ((h) > 0 && (h) <= 100)
 
 #define DHT_READ_DELAY_MS 2500
 
