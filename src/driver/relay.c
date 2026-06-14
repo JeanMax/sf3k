@@ -1,14 +1,9 @@
 #include "relay.h"
 
 #include <hardware/gpio.h>
-#include <task.h>
 
 #include "utils/log.h"
-
-#define TICK_TO_SEC(t) (pdTICKS_TO_MS(t) / 1000)
-#define NOW() (long)TICK_TO_SEC(xTaskGetTickCount())
-#define END_OF_TIME INT32_MAX
-#define NEVER (INT32_MIN / 2)
+#include "utils/datetime.h"
 
 
 int switch_relay(t_relay *relay, bool state) {

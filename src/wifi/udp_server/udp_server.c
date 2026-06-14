@@ -7,6 +7,7 @@
 #include "driver/photor.h"
 #include "utils/persist.h"
 #include "utils/log.h"
+#include "utils/datetime.h"
 #include "shared.h"
 #include "PinConfig.h"
 
@@ -35,16 +36,18 @@ static int status_fun(__unused const char *arg, char *response_buf) {
                     "goal=%d, "
                     "hot_range=%.1f, "
                     "cool_range=%.1f, "
+                    "state=%s, "
                     "pause=%d, "
-                    "state=%s\n",
+                    "uptime=%s\n",
                     shared__current_temp,
                     read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
                     shared__goal_temp,
                     shared__hot_range,
                     shared__cool_range,
-                    g_is_paused,
                     shared__state == WAIT ? "off" :
-                        (shared__state == HEAT ? "heating" : "cooling"));
+                        (shared__state == HEAT ? "heating" : "cooling"),
+                    g_is_paused,
+                    get_timestamp_str());
 }
 
 static int goal_fun(const char *arg, char *response_buf) {

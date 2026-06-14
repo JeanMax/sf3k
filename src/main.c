@@ -15,6 +15,7 @@
 #include "ui/oled.h"
 #include "utils/log.h"
 #include "utils/persist.h"
+#include "utils/datetime.h"
 #include "wifi/wifi.h"
 #include "wifi/http_client/http_client.h"
 #include "wifi/udp_server/udp_server.h"
@@ -65,7 +66,7 @@ static int wait_for_usb(int timeout_ms) {
         if (tud_cdc_connected()) {
             return 0;
         }
-        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
+        SLEEP_MS(sleep_inc);
     }
     return -1;
 }
@@ -99,7 +100,7 @@ static void thermo_task(void *data) {
         } else {
             LOG_WARNING("NO TEMP: %d", ret);
         }
-        vTaskDelay(pdMS_TO_TICKS(DHT_READ_DELAY_MS));
+        SLEEP_MS(DHT_READ_DELAY_MS);
     }
 
     // Do not let a task procedure return
@@ -134,13 +135,13 @@ static void relay_task(void *data) {
 
     init_photor_and_internal_temp(PHOTOR_GPIO);
 
-    vTaskDelay(pdMS_TO_TICKS(3000));  // in case of reboot loop
 
     char *state2str[] = {"WAIT", "COOL", "HEAT"};
+    SLEEP_MS(cool_relay.conf.min_off_sec * 1000);  // in case of reboot loop
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
     while (42) {
@@ -151,7 +152,7 @@ static void relay_task(void *data) {
             ctrl_temp(&hot_relay, &cool_relay);
         }
         LOG_INFO("Relay: %s", state2str[shared__state]);
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(DHT_READ_DELAY_MS);
 
         float light_level = read_photor(PHOTOR_ADC_CHANNEL);
         LOG_DEBUG("PHOTOR: %.1f%%", light_level); /* DEBUG */
@@ -190,7 +191,7 @@ static void menu_task(void *data) {
     while (42) {
         menu_refresh();  // TODO: would make more sense to call from temp thread
         LOG_INFO("Goal: %d°C", shared__goal_temp);
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
     // Do not let a task procedure return
@@ -198,9 +199,8 @@ static void menu_task(void *data) {
 }
 
 //TODO: move to http_client.c ?
-#define CONTENT_BUF_SIZE 512
-static char *json_encode()
-{
+#define CONTENT_BUF_SIZE 256
+static char *json_encode() {
     static char json_content[CONTENT_BUF_SIZE];
 
     snprintf(json_content, CONTENT_BUF_SIZE,
@@ -209,7 +209,7 @@ static char *json_encode()
              "\"temp\": %.1f, "
              "\"ambient\": %.1f, "
              "\"temp_unit\": \"C\", "
-             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s\""
+             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s, pause=%d, uptime=%s\""
              "}",
              shared__current_temp,
              read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
@@ -217,7 +217,9 @@ static char *json_encode()
              shared__hot_range,
              shared__cool_range,
              shared__state == WAIT ? "off" :
-                 (shared__state == HEAT ? "heating" : "cooling"));
+                 (shared__state == HEAT ? "heating" : "cooling"),
+             is_udp_asking_pause(),
+             get_timestamp_str());
     return json_content;
 }
 
@@ -245,7 +247,7 @@ static struct udp_pcb *reconnect(struct udp_pcb *udp) {
             LOG_INFO("LINK_UP!");
             break;
         }
-        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
+        SLEEP_MS(sleep_inc);
     }
 
     return udp;
@@ -269,15 +271,14 @@ static void wifi_task(void *data) {
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
     while (42) {
-        //TODO: log time
         int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
         if (wifi_status != CYW43_LINK_UP) {
             udp = reconnect(udp);
-            vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
+            SLEEP_MS(5000); // don't spam reconnect
             continue;
         }
 
@@ -379,9 +380,9 @@ int main() {
     } else {
         for (uint8_t i = 0; i < 10; i++) {
             led(true);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            SLEEP_MS(100);
             led(false);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            SLEEP_MS(100);
         }
         // panic
     }

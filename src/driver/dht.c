@@ -21,10 +21,9 @@
 
 #include "dht.h"
 #include "utils/log.h"          /* DEBUG */
+#include "utils/datetime.h"          /* DEBUG */
 
 #include <hardware/gpio.h>
-#include <FreeRTOS.h>
-#include <task.h>
 
 
 int dht_read(float *temperature, float *humidity, uint8_t dht_pin) {
@@ -39,7 +38,7 @@ int dht_read(float *temperature, float *humidity, uint8_t dht_pin) {
 
     // Set pin high for ~500 milliseconds.
     gpio_put(dht_pin, true);
-    vTaskDelay(pdMS_TO_TICKS(500));
+    SLEEP_MS(500);
 
     // The next calls are timing critical and care should be taken
     // to ensure no unnecssary work is done below.
@@ -47,7 +46,7 @@ int dht_read(float *temperature, float *humidity, uint8_t dht_pin) {
 
     // Set pin low for ~20 milliseconds.
     gpio_put(dht_pin, false);
-    vTaskDelay(pdMS_TO_TICKS(20));
+    SLEEP_MS(20);
 
     gpio_set_dir(dht_pin, GPIO_IN);
     // Need a very short delay before reading pins or else value is sometimes still low.

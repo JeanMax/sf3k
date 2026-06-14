@@ -1,8 +1,6 @@
 #ifndef _RELAY_H
 #define _RELAY_H
 
-#include <FreeRTOS.h>
-
 #include <stdint.h>
 #include <stdbool.h>
 
