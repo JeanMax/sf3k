@@ -83,7 +83,6 @@ target_link_libraries(sf3k
     hardware_sync
     pico_unique_id
     pico_multicore
-    FreeRTOS-Kernel
     FreeRTOS-Kernel-Heap4)
 
 # Ignore warnings from lwip code
@@ -95,5 +94,12 @@ set_source_files_properties(
     ${PICO_SDK_PATH}/src/rp2_common/pico_async_context/async_context_freertos.c
     PROPERTIES
     COMPILE_OPTIONS "-Wno-unused-parameter")
+
+# Ignore warnings from FreeRTOS in release mode
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/port.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-but-set-variable")
+
 
 pico_add_extra_outputs(sf3k)

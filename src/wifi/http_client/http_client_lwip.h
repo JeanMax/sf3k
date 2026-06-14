@@ -41,8 +41,22 @@
 #include "lwip/apps/http_client.h"
 
 
+/**
+ * @brief HTTP client API: get a file by passing server name as string (DNS name or IP address string)
+ *
+ * @param server_name server name as string (DNS name or IP address string)
+ * @param port tcp port of the server
+ * @param uri uri to get from the server, remember leading "/"!
+ * @param settings connection settings (callbacks, etc.)
+ * @param recv_fn the http body (not the headers) are passed to this callback
+ * @param callback_arg argument passed to all the callbacks
+ * @param connection retrieves the connection handle (to match in callbacks)
+ *
+ * @return ERR_OK if starting the request succeeds (callback_fn will be called later)
+ *         or an error code
+ */
 err_t __httpc_get_file_dns(const char* server_name, u16_t port, const char* uri, const httpc_connection_t *settings,
-                     altcp_recv_fn recv_fn, void* callback_arg, httpc_state_t **connection);
+                           altcp_recv_fn recv_fn, void* callback_arg, httpc_state_t **connection);
 
 
 

@@ -7,9 +7,6 @@
 #define WIFI_CONNECT_TIMEOUT_MS 30000
 
 
-extern volatile bool g_wifi_connected;
-
-
 /** @brief  Init the pico wifi.
  *
  * Required for led support.
@@ -29,6 +26,14 @@ void wifi_deinit(void);
  * @return 0 if success
  */
 int wifi_connect(void);
+
+/** @brief  Check if the wifi is connected.
+ *
+ * More like 'was it connected?'
+ *
+ * @return true if connected
+ */
+bool is_wifi_connected(void);
 
 /** @brief  Switch led state.
  *

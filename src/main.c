@@ -15,8 +15,14 @@
 #include "ui/oled.h"
 #include "utils/log.h"
 #include "utils/persist.h"
+#include "utils/datetime.h"
 #include "wifi/wifi.h"
 #include "wifi/http_client/http_client.h"
+#include "wifi/udp_server/udp_server.h"
+
+// photor and screen broken ):
+#define FORCE_FAN
+#define HEADLESS
 
 #define REFRESH_DELAY_MS 1000
 
@@ -37,22 +43,6 @@ volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
 
 
-//TODO: add a sleep.c, move wifi wait to wifi.c, move usb wait to log.c
-
-#define WIFI_CONNECT_TIMEOUT_MS 30000
-
-static int wait_for_wifi(int timeout_ms) {
-    uint sleep_inc = 100;
-    for (int i = 0; i < timeout_ms; i += sleep_inc) {
-        if (g_wifi_connected) {
-            return 0;
-        }
-        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
-    }
-    return -1;
-}
-
-
 #define USB_DEFAULT_TIMEOUT_MS 3000
 
 static int wait_for_usb(int timeout_ms) {
@@ -64,7 +54,7 @@ static int wait_for_usb(int timeout_ms) {
         if (tud_cdc_connected()) {
             return 0;
         }
-        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
+        SLEEP_MS(sleep_inc);
     }
     return -1;
 }
@@ -93,12 +83,12 @@ static void thermo_task(void *data) {
         if (!ret) {
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
-            LOG_INFO("Temp: %.2f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+            LOG_INFO("Temp: %.1f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
             LOG_DEBUG("Humidity: %d%%", (int)tmp_hum);
         } else {
             LOG_WARNING("NO TEMP: %d", ret);
         }
-        vTaskDelay(pdMS_TO_TICKS(DHT_READ_DELAY_MS));
+        SLEEP_MS(DHT_READ_DELAY_MS);
     }
 
     // Do not let a task procedure return
@@ -133,34 +123,49 @@ static void relay_task(void *data) {
 
     init_photor_and_internal_temp(PHOTOR_GPIO);
 
-    vTaskDelay(pdMS_TO_TICKS(3000));  // in case of reboot loop
+#ifndef NDEBUG
+    const char *state2str[] = {"WAIT", "COOL", "HEAT"};
+#endif
 
-    char *state2str[] = {"WAIT", "COOL", "HEAT"};
+#ifdef FORCE_FAN
+    fan_relay.last_off_sec = 0;  // so you can turn it on right now
+    fan_relay.conf.min_off_sec = 0;  // so you can turn it on right now
+    switch_relay(&fan_relay, true);
+#endif
+
+    SLEEP_MS(cool_relay.conf.min_off_sec * 1000);  // in case of reboot loop
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
     while (42) {
-        ctrl_temp(&hot_relay, &cool_relay);
+        if (is_udp_asking_pause()) {
+            switch_relay(&hot_relay, false);
+            switch_relay(&cool_relay, false);
+        } else {
+            ctrl_temp(&hot_relay, &cool_relay);
+        }
         LOG_INFO("Relay: %s", state2str[shared__state]);
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(DHT_READ_DELAY_MS);
 
+#ifndef FORCE_FAN
         float light_level = read_photor(PHOTOR_ADC_CHANNEL);
-        LOG_DEBUG("PHOTOR: %.2f%%", light_level); /* DEBUG */
+        LOG_DEBUG("PHOTOR: %.1f%%", light_level); /* DEBUG */
         if (light_level > LIGHT_LEVEL_TRIGGER) {
             switch_relay(&fan_relay, false); /* DEBUG */
         } else {
             switch_relay(&fan_relay, true); /* DEBUG */
         }
+#endif
     }
 
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
 
-
+#ifndef HEADLESS
 static void menu_task(void *data) {
     (void)data;
     // menu will read / write to flash,
@@ -184,26 +189,26 @@ static void menu_task(void *data) {
     while (42) {
         menu_refresh();  // TODO: would make more sense to call from temp thread
         LOG_INFO("Goal: %d°C", shared__goal_temp);
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
+#endif
 
 //TODO: move to http_client.c ?
-#define CONTENT_BUF_SIZE 512
-static char *json_encode()
-{
+#define CONTENT_BUF_SIZE 256
+static char *json_encode() {
     static char json_content[CONTENT_BUF_SIZE];
 
     snprintf(json_content, CONTENT_BUF_SIZE,
              "{"
              "\"name\": \"SF3K\", "
-             "\"temp\": %.2f, "
-             "\"ambient\": %.2f, "
+             "\"temp\": %.1f, "
+             "\"ambient\": %.1f, "
              "\"temp_unit\": \"C\", "
-             "\"comment\": \"goal=%d, hot_range=%.2f, cool_range=%.2f, state=%s\""
+             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s, pause=%d, uptime=%s\""
              "}",
              shared__current_temp,
              read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
@@ -211,8 +216,40 @@ static char *json_encode()
              shared__hot_range,
              shared__cool_range,
              shared__state == WAIT ? "off" :
-             (shared__state == HEAT ? "heating" : "cooling"));
+                 (shared__state == HEAT ? "heating" : "cooling"),
+             is_udp_asking_pause(),
+             get_timestamp_str());
     return json_content;
+}
+
+// deco udp if non-NULL, connect wifi + udp, and wait for LINK_UP
+static struct udp_pcb *reconnect(struct udp_pcb *udp) {
+    LOG_INFO("trying to reconnect wifi");
+    if (udp) {
+        udp_server_deinit(udp);
+    }
+    if (wifi_connect()) {
+        panic("Wi-Fi connect failed");
+    }
+    LOG_INFO("Wi-Fi connected!");
+    udp = udp_server_init();
+    if (!udp) {
+        panic("UDP init failed");
+    }
+    LOG_INFO("UDP up!");
+
+    LOG_INFO("waiting for LINK_UP...");
+    uint sleep_inc = 100;
+    for (int i = 0; i < WIFI_CONNECT_TIMEOUT_MS * 2; i += sleep_inc) {
+        int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (wifi_status == CYW43_LINK_UP) {
+            LOG_INFO("LINK_UP!");
+            break;
+        }
+        SLEEP_MS(sleep_inc);
+    }
+
+    return udp;
 }
 
 static void wifi_task(void *data) {
@@ -229,50 +266,46 @@ static void wifi_task(void *data) {
     LOG_INFO("wifi task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
 
-    if (wifi_connect()) {
-        panic("Wi-Fi connect failed");
-    }
-    LOG_INFO("Wi-Fi connected!");
+    struct udp_pcb *udp = reconnect(NULL);
 
     while (!TEMP_OK(shared__current_temp)) {
         LOG_DEBUG("Waiting for temp...");
-        vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
+        SLEEP_MS(REFRESH_DELAY_MS);
     }
 
-    vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
+    SLEEP_MS(5000); // in case of reboot loop
 
     while (42) {
-        //TODO: log time
+        int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (wifi_status != CYW43_LINK_UP) {
+            LOG_WARNING("LINK not up :/");
+            udp = reconnect(udp);
+            SLEEP_MS(5000); // don't spam reconnect
+            continue;
+        }
+
         LOG_INFO("Sending http request...");
-        int ret = http_request(
-                               /* "rmrf.fr", */
-                               "log.brewersfriend.com",
+        int ret = http_request("log.brewersfriend.com",
                                "/stream/" BREW_KEY,
                                "Content-Type: application/json" EOL,
                                json_encode());
         if (!ret) {
             LOG_INFO("request ok!");
         } else {
-            LOG_ERROR("request failed: %d", ret);
-            //TODO: the return code seems fucked (found to this point: 5, then lots of 3)
-            /* if (ret == ERR_CLSD || ret == ERR_ABRT || ret == ERR_RST) { */
-                LOG_INFO("trying to reconnect wifi");
-                /* wifi_deinit(); */
-                /* LOG_INFO("wifi de-init'ed"); */
-                /* if (wifi_init()) { */
-                /*     panic("Wi-Fi re-init failed"); */
-                /* } */
-                /* LOG_INFO("wifi re-init'ed"); */
-                if (wifi_connect()) {
-                    panic("Wi-Fi re-connect failed");
-                }
-                LOG_INFO("Wi-Fi connected!");
-                vTaskDelay(pdMS_TO_TICKS(5000)); // polite sleep
-                continue;
-            /* } */
+            if (ret > 0) {  // httpc_result_t;
+                LOG_ERROR("request failed: %d (httpc_result_t: ignore)", ret);
+            } else {  // err_t
+                LOG_ERROR("request failed: %d (err_t: reconnect)", ret);
+                udp = reconnect(udp);
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
+        int led_state = true;
+        for (int i = 0; i < HTTP_REQUEST_DELAY_MS / 1000; i++) {
+            led(led_state);
+            led_state ^= 1;
+            SLEEP_MS(1000);
+        }
     }
 
     wifi_deinit(); // never
@@ -282,30 +315,22 @@ static void wifi_task(void *data) {
 }
 
 
-static void led_task(void *data) {
+static void watchdog_task(void *data) {
     (void)data;
-    // same core as the wifi task, probably not needed
-    // -> core 1
+    // -> core 1 (no reason... do I need one watchdog per core?)
     vTaskCoreAffinitySet(NULL, 1);
 
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     if (watchdog_enable_caused_reboot()) {
         LOG_ERROR("Rebooted by Watchdog!");
     }
-    LOG_INFO("led task started (core: %d - aff: %lu)",
+    LOG_INFO("watchdog task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
-
-    wait_for_wifi(WIFI_CONNECT_TIMEOUT_MS * 2);
-    LOG_DEBUG("led init done");
 
     watchdog_enable(WATCHDOG_DELAY_MS, WATCHDOG_STOP_ON_DEBUG);
 
-    bool led_state = false;
-
     while (42) {
-        led(led_state);
-        led_state ^= 1;
-        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
+        SLEEP_MS(WATCHDOG_DELAY_MS / 2);
         watchdog_update();
     }
 
@@ -329,24 +354,28 @@ int main() {
     // dht is time sensitive, so the thermo task should be highest priority
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
-                                                5, NULL);
+                                                configMAX_PRIORITIES - 1, NULL);
     BaseType_t relay_task_status = xTaskCreate(relay_task, "relay_task",
                                                configMINIMAL_STACK_SIZE, NULL,
-                                               4, NULL);
+                                               configMAX_PRIORITIES - 2, NULL);
+#ifndef HEADLESS
     BaseType_t menu_task_status = xTaskCreate(menu_task, "menu_task",
                                               configMINIMAL_STACK_SIZE, NULL,
-                                              3, NULL);
+                                              configMAX_PRIORITIES - 2, NULL);
+#endif
     BaseType_t wifi_task_status = xTaskCreate(wifi_task, "wifi_task",
-                                              configMINIMAL_STACK_SIZE, NULL,
-                                              2, NULL);
-    BaseType_t led_task_status = xTaskCreate(led_task, "led_task",
+                                              configMINIMAL_STACK_SIZE * 4, NULL,
+                                              configMAX_PRIORITIES - 2, NULL);
+    BaseType_t watchdog_task_status = xTaskCreate(watchdog_task, "watchdog_task",
                                               configMINIMAL_STACK_SIZE, NULL,
                                               1, NULL);
 
     if (thermo_task_status == pdPASS
         && relay_task_status == pdPASS
+#ifndef HEADLESS
         && menu_task_status == pdPASS
-        && led_task_status == pdPASS
+#endif
+        && watchdog_task_status == pdPASS
         && wifi_task_status == pdPASS) {
 
         vTaskStartScheduler();
@@ -354,9 +383,9 @@ int main() {
     } else {
         for (uint8_t i = 0; i < 10; i++) {
             led(true);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            SLEEP_MS(100);
             led(false);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            SLEEP_MS(100);
         }
         // panic
     }
