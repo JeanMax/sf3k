@@ -154,7 +154,7 @@ static void relay_task(void *data) {
         vTaskDelay(pdMS_TO_TICKS(REFRESH_DELAY_MS));
 
         float light_level = read_photor(PHOTOR_ADC_CHANNEL);
-        LOG_DEBUG("PHOTOR: %.2f%%", light_level); /* DEBUG */
+        LOG_DEBUG("PHOTOR: %.1f%%", light_level); /* DEBUG */
         if (light_level > LIGHT_LEVEL_TRIGGER) {
             switch_relay(&fan_relay, false); /* DEBUG */
         } else {

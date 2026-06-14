@@ -13,22 +13,16 @@
 #include "utils/log.h"
 
 
-static err_t internal_header_fn(httpc_state_t *connection, void *arg, struct pbuf *hdr, u16_t hdr_len, u32_t content_len) {
-    assert(arg);
-    HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
-    if (req->headers_fn) {
-        return req->headers_fn(connection, req->callback_arg, hdr, hdr_len, content_len);
-    }
-    return ERR_OK;
-}
-
 static err_t internal_recv_fn(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t err) {
     assert(arg);
     HTTP_REQUEST_T *req = (HTTP_REQUEST_T*)arg;
+    int rc = ERR_OK;
     if (req->recv_fn) {
-        return req->recv_fn(req->callback_arg, conn, p, err);
+        rc = req->recv_fn(req->callback_arg, conn, p, err);
     }
-    return ERR_OK;
+    altcp_recved(conn, p->tot_len);
+    pbuf_free(p);
+    return rc;
 }
 
 static void internal_result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_content_len, u32_t srv_res, err_t err) {
@@ -47,10 +41,13 @@ static void internal_result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_
 int http_client_request_async(async_context_t *context, HTTP_REQUEST_T *req) {
     const uint16_t default_port = 80;
     req->complete = false;
-    req->settings.headers_done_fn = req->headers_fn ? internal_header_fn : NULL;
     req->settings.result_fn = internal_result_fn;
     async_context_acquire_lock_blocking(context);
-    err_t ret = __httpc_get_file_dns(req->hostname, req->port ? req->port : default_port, req->url, &req->settings, internal_recv_fn, req, NULL);
+    err_t ret = __httpc_get_file_dns(req->hostname,
+                                     req->port ? req->port : default_port,
+                                     req->url, &req->settings,
+                                     req->recv_fn ? internal_recv_fn : NULL,
+                                     req, NULL);
     async_context_release_lock(context);
     if (ret != ERR_OK) {
         LOG_ERROR("http request failed: %d", ret);

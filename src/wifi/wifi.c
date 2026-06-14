@@ -4,8 +4,7 @@
 volatile bool g_wifi_connected = false;
 
 
-int wifi_init()
-{
+int wifi_init() {
     int ret = cyw43_arch_init();
     if (ret) {
         return ret;
@@ -14,16 +13,14 @@ int wifi_init()
     return 0;
 }
 
-void wifi_deinit()
-{
+void wifi_deinit() {
     led(false);
     g_wifi_connected = false;
     cyw43_arch_disable_sta_mode(); //disconnect
     cyw43_arch_deinit();
 }
 
-int wifi_connect()
-{
+int wifi_connect() {
     led(false);
     g_wifi_connected = false;
     int ret = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD,

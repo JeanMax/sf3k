@@ -3,6 +3,7 @@
 #include <pico/bootrom.h>
 #include <string.h>
 
+// for ADC read (pi temp)
 #include "driver/photor.h"
 #include "utils/persist.h"
 #include "utils/log.h"
@@ -13,8 +14,7 @@
 
 volatile bool g_is_paused = false;
 
-static int help_fun(__unused const char *arg, char *response_buf)
-{
+static int help_fun(__unused const char *arg, char *response_buf) {
     return snprintf(response_buf, RESPONSE_LEN_MAX,
                     "SF3K commands:\n\n"
                     "help -- you found this already\n"
@@ -27,8 +27,8 @@ static int help_fun(__unused const char *arg, char *response_buf)
                     "pause -- stop toggling relays until this command is issued again\n\n");
 }
 
-static int status_fun(__unused const char *arg, char *response_buf)
-{
+
+static int status_fun(__unused const char *arg, char *response_buf) {
     return snprintf(response_buf, RESPONSE_LEN_MAX,
                     "temp=%.1f, "
                     "ambient=%.1f, "
@@ -47,8 +47,7 @@ static int status_fun(__unused const char *arg, char *response_buf)
                         (shared__state == HEAT ? "heating" : "cooling"));
 }
 
-static int goal_fun(const char *arg, char *response_buf)
-{
+static int goal_fun(const char *arg, char *response_buf) {
     int old = shared__goal_temp;
     int new;
 
@@ -61,8 +60,7 @@ static int goal_fun(const char *arg, char *response_buf)
     return sprintf(response_buf, "goal: invalid arg '%s'\n", arg);
 }
 
-static int cool_range_fun(const char *arg, char *response_buf)
-{
+static int cool_range_fun(const char *arg, char *response_buf) {
     float old = shared__cool_range;
     float new;
 
@@ -75,8 +73,7 @@ static int cool_range_fun(const char *arg, char *response_buf)
     return sprintf(response_buf, "cool_range: invalid arg '%s'\n", arg);
 }
 
-static int hot_range_fun(const char *arg, char *response_buf)
-{
+static int hot_range_fun(const char *arg, char *response_buf) {
     float old = shared__hot_range;
     float new;
 
@@ -89,22 +86,19 @@ static int hot_range_fun(const char *arg, char *response_buf)
     return sprintf(response_buf, "hot_range: invalid arg '%s'\n", arg);
 }
 
-static int reboot_fun(__unused const char *arg, __unused char *response_buf)
-{
+static int reboot_fun(__unused const char *arg, __unused char *response_buf) {
     LOG_INFO("Waiting to be rebooted by watchdog");
     while(42) {}
     return 0;
 }
 
-static int bootsel_fun(__unused const char *arg, __unused char *response_buf)
-{
+static int bootsel_fun(__unused const char *arg, __unused char *response_buf) {
     LOG_INFO("Bootsel");
     reset_usb_boot(0, 0);
     return 0;
 }
 
-static int pause_fun(__unused const char *arg, char *response_buf)
-{
+static int pause_fun(__unused const char *arg, char *response_buf) {
     g_is_paused ^= 1;
     return sprintf(response_buf, "pause=%d (prev=%d)\n", g_is_paused, g_is_paused ^ 1);
 }
@@ -141,8 +135,7 @@ t_cmd_callback *cmd_fun[MAX_CMD] =  {
 
 #define IS_SPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\n')
 
-static int run_cmd(const char *payload, int payload_len, char *response_buf)
-{
+static int run_cmd(const char *payload, int payload_len, char *response_buf) {
     char *s = (char *)payload;
     while (*s && !IS_SPACE(*s)
            && (s - payload) < CMD_LEN_MAX
@@ -184,8 +177,7 @@ static int run_cmd(const char *payload, int payload_len, char *response_buf)
 }
 
 static void udp_receive_callback(__unused void *arg, struct udp_pcb *upcb,
-                                 struct pbuf *p, const ip_addr_t *addr, u16_t port)
-{
+                                 struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     static char response_buf[RESPONSE_LEN_MAX] = {0};
 
     int len = run_cmd((char *)p->payload, p->len, response_buf);
@@ -203,8 +195,7 @@ static void udp_receive_callback(__unused void *arg, struct udp_pcb *upcb,
 }
 
 
-struct udp_pcb *udp_server_init(void)
-{
+struct udp_pcb *udp_server_init(void) {
     struct udp_pcb *upcb = udp_new();
     err_t err = udp_bind(upcb, NULL, UDP_PORT);
 
@@ -217,7 +208,6 @@ struct udp_pcb *udp_server_init(void)
     return NULL;
 }
 
-void udp_server_deinit(struct udp_pcb *upcb)
-{
+void udp_server_deinit(struct udp_pcb *upcb) {
     udp_remove(upcb);
 }

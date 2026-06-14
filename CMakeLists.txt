@@ -95,4 +95,11 @@ set_source_files_properties(
     PROPERTIES
     COMPILE_OPTIONS "-Wno-unused-parameter")
 
+# Ignore warnings from FreeRTOS in release mode
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/FreeRTOS/portable/ThirdParty/GCC/RP2350_ARM_NTZ/non_secure/port.c
+    PROPERTIES
+    COMPILE_OPTIONS "-Wno-unused-but-set-variable")
+
+
 pico_add_extra_outputs(sf3k)

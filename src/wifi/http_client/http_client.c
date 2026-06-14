@@ -10,6 +10,7 @@
 #include "http_client_util.h"
 
 
+#ifndef NDEBUG
 // Print body to stdout
 static err_t http_client_receive_print_fn(__unused void *arg, __unused struct altcp_pcb *conn, struct pbuf *p, err_t err) {
     if (err) {
@@ -23,6 +24,7 @@ static err_t http_client_receive_print_fn(__unused void *arg, __unused struct al
     }
     return ERR_OK;
 }
+#endif
 
 #define DEFAULT_HEADER                          \
     "User-Agent: sf3k" EOL                      \
@@ -45,11 +47,10 @@ static err_t http_client_receive_print_fn(__unused void *arg, __unused struct al
     "%s" EOL EOL,                                                   \
     url, headers ? headers : "", host, strlen(content), content
 
-#define ENCODE_BUF_SIZE 1024
+#define ENCODE_BUF_SIZE 512
 
 static const char *encode_url(const char *host,
-                              const char *url, const char *headers, const char *content)
-{
+                              const char *url, const char *headers, const char *content) {
     static char buf[ENCODE_BUF_SIZE];
 
     if (!content) {
@@ -64,13 +65,12 @@ static const char *encode_url(const char *host,
 }
 
 int http_request(const char *host, const char *url,
-                 const char *headers, const char *content)
-{
+                 const char *headers, const char *content) {
     HTTP_REQUEST_T req = {0};
     req.hostname = host;
     req.url = encode_url(host, url, headers, content);
 #ifndef NDEBUG
     req.recv_fn = http_client_receive_print_fn;
 #endif
-    return http_client_request_sync(cyw43_arch_async_context(), &req);;
+    return http_client_request_sync(cyw43_arch_async_context(), &req);
 }
