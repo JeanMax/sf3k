@@ -64,6 +64,7 @@ static int wait_for_usb(int timeout_ms) {
 ////////////////////////////////////////////////////////////////////////////////
 
 
+#define DHT_TEMP_CORRECTION 0.4
 
 static void thermo_task(void *data) {
     (void)data;
@@ -82,6 +83,7 @@ static void thermo_task(void *data) {
         /* ret = max6675_get_temp(&conf, &tmp_temp); */
         ret = dht_read(&tmp_temp, &tmp_hum, DHT_GPIO);
         if (!ret) {
+            tmp_temp += DHT_TEMP_CORRECTION;
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
             LOG_INFO("Temp: %.1f - Mean: %.2f", tmp_temp, shared__current_temp);
