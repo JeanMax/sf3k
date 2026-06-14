@@ -20,6 +20,10 @@
 #include "wifi/http_client/http_client.h"
 #include "wifi/udp_server/udp_server.h"
 
+// photor and screen broken ):
+#define FORCE_FAN
+#define HEADLESS
+
 #define REFRESH_DELAY_MS 1000
 
 #ifdef NDEBUG
@@ -37,22 +41,6 @@ volatile int shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
-
-
-//TODO: add a sleep.c, move wifi wait to wifi.c, move usb wait to log.c
-
-#define WIFI_CONNECT_TIMEOUT_MS 30000
-
-static int wait_for_wifi(int timeout_ms) {
-    uint sleep_inc = 100;
-    for (int i = 0; i < timeout_ms; i += sleep_inc) {
-        if (is_wifi_connected()) {
-            return 0;
-        }
-        vTaskDelay(pdMS_TO_TICKS(sleep_inc));
-    }
-    return -1;
-}
 
 
 #define USB_DEFAULT_TIMEOUT_MS 3000
@@ -135,8 +123,16 @@ static void relay_task(void *data) {
 
     init_photor_and_internal_temp(PHOTOR_GPIO);
 
+#ifndef NDEBUG
+    const char *state2str[] = {"WAIT", "COOL", "HEAT"};
+#endif
 
-    char *state2str[] = {"WAIT", "COOL", "HEAT"};
+#ifdef FORCE_FAN
+    fan_relay.last_off_sec = 0;  // so you can turn it on right now
+    fan_relay.conf.min_off_sec = 0;  // so you can turn it on right now
+    switch_relay(&fan_relay, true);
+#endif
+
     SLEEP_MS(cool_relay.conf.min_off_sec * 1000);  // in case of reboot loop
 
     while (!TEMP_OK(shared__current_temp)) {
@@ -154,6 +150,7 @@ static void relay_task(void *data) {
         LOG_INFO("Relay: %s", state2str[shared__state]);
         SLEEP_MS(DHT_READ_DELAY_MS);
 
+#ifndef FORCE_FAN
         float light_level = read_photor(PHOTOR_ADC_CHANNEL);
         LOG_DEBUG("PHOTOR: %.1f%%", light_level); /* DEBUG */
         if (light_level > LIGHT_LEVEL_TRIGGER) {
@@ -161,13 +158,14 @@ static void relay_task(void *data) {
         } else {
             switch_relay(&fan_relay, true); /* DEBUG */
         }
+#endif
     }
 
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
 
-
+#ifndef HEADLESS
 static void menu_task(void *data) {
     (void)data;
     // menu will read / write to flash,
@@ -197,6 +195,7 @@ static void menu_task(void *data) {
     // Do not let a task procedure return
     vTaskDelete(NULL);
 }
+#endif
 
 //TODO: move to http_client.c ?
 #define CONTENT_BUF_SIZE 256
@@ -274,9 +273,12 @@ static void wifi_task(void *data) {
         SLEEP_MS(REFRESH_DELAY_MS);
     }
 
+    SLEEP_MS(5000); // in case of reboot loop
+
     while (42) {
         int wifi_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
         if (wifi_status != CYW43_LINK_UP) {
+            LOG_WARNING("LINK not up :/");
             udp = reconnect(udp);
             SLEEP_MS(5000); // don't spam reconnect
             continue;
@@ -298,7 +300,12 @@ static void wifi_task(void *data) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(HTTP_REQUEST_DELAY_MS));
+        int led_state = true;
+        for (int i = 0; i < HTTP_REQUEST_DELAY_MS / 1000; i++) {
+            led(led_state);
+            led_state ^= 1;
+            SLEEP_MS(1000);
+        }
     }
 
     wifi_deinit(); // never
@@ -308,30 +315,22 @@ static void wifi_task(void *data) {
 }
 
 
-static void led_task(void *data) {
+static void watchdog_task(void *data) {
     (void)data;
-    // same core as the wifi task, probably not needed
-    // -> core 1
+    // -> core 1 (no reason... do I need one watchdog per core?)
     vTaskCoreAffinitySet(NULL, 1);
 
     wait_for_usb(USB_DEFAULT_TIMEOUT_MS);
     if (watchdog_enable_caused_reboot()) {
         LOG_ERROR("Rebooted by Watchdog!");
     }
-    LOG_INFO("led task started (core: %d - aff: %lu)",
+    LOG_INFO("watchdog task started (core: %d - aff: %lu)",
              portGET_CORE_ID(), vTaskCoreAffinityGet(NULL));
-
-    wait_for_wifi(WIFI_CONNECT_TIMEOUT_MS * 2);
-    LOG_DEBUG("led init done");
 
     watchdog_enable(WATCHDOG_DELAY_MS, WATCHDOG_STOP_ON_DEBUG);
 
-    bool led_state = false;
-
     while (42) {
-        led(led_state);
-        led_state ^= 1;
-        vTaskDelay(pdMS_TO_TICKS(WATCHDOG_DELAY_MS / 2));
+        SLEEP_MS(WATCHDOG_DELAY_MS / 2);
         watchdog_update();
     }
 
@@ -355,24 +354,28 @@ int main() {
     // dht is time sensitive, so the thermo task should be highest priority
     BaseType_t thermo_task_status = xTaskCreate(thermo_task, "thermo_task",
                                                 configMINIMAL_STACK_SIZE, NULL,
-                                                5, NULL);
+                                                configMAX_PRIORITIES - 1, NULL);
     BaseType_t relay_task_status = xTaskCreate(relay_task, "relay_task",
                                                configMINIMAL_STACK_SIZE, NULL,
-                                               4, NULL);
+                                               configMAX_PRIORITIES - 2, NULL);
+#ifndef HEADLESS
     BaseType_t menu_task_status = xTaskCreate(menu_task, "menu_task",
                                               configMINIMAL_STACK_SIZE, NULL,
-                                              3, NULL);
+                                              configMAX_PRIORITIES - 2, NULL);
+#endif
     BaseType_t wifi_task_status = xTaskCreate(wifi_task, "wifi_task",
-                                              configMINIMAL_STACK_SIZE, NULL,
-                                              2, NULL);
-    BaseType_t led_task_status = xTaskCreate(led_task, "led_task",
+                                              configMINIMAL_STACK_SIZE * 4, NULL,
+                                              configMAX_PRIORITIES - 2, NULL);
+    BaseType_t watchdog_task_status = xTaskCreate(watchdog_task, "watchdog_task",
                                               configMINIMAL_STACK_SIZE, NULL,
                                               1, NULL);
 
     if (thermo_task_status == pdPASS
         && relay_task_status == pdPASS
+#ifndef HEADLESS
         && menu_task_status == pdPASS
-        && led_task_status == pdPASS
+#endif
+        && watchdog_task_status == pdPASS
         && wifi_task_status == pdPASS) {
 
         vTaskStartScheduler();
