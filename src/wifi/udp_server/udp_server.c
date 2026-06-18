@@ -5,6 +5,7 @@
 
 // for ADC read (pi temp)
 #include "driver/photor.h"
+#include "temp_ctrl/hysteresis.h"
 #include "utils/persist.h"
 #include "utils/log.h"
 #include "utils/datetime.h"
@@ -19,7 +20,8 @@ static int help_fun(__unused const char *arg, char *response_buf) {
     return snprintf(response_buf, RESPONSE_LEN_MAX,
                     "SF3K commands:\n\n"
                     "help -- you found this already\n"
-                    "status -- show values for various sensors and settings\n"
+                    "status -- show values for various sensors / relays\n"
+                    "config -- show values for various settings\n"
                     "goal N -- set the goal temperature to N (int)\n"
                     "cool_range N -- set the cool_range value to N (float)\n"
                     "hot_range N -- set the hot_range value to N (float)\n"
@@ -28,26 +30,41 @@ static int help_fun(__unused const char *arg, char *response_buf) {
                     "pause -- stop toggling relays until this command is issued again\n\n");
 }
 
-
 static int status_fun(__unused const char *arg, char *response_buf) {
     return snprintf(response_buf, RESPONSE_LEN_MAX,
                     "temp=%.1f, "
-                    "ambient=%.1f, "
-                    "goal=%d, "
-                    "hot_range=%.1f, "
-                    "cool_range=%.1f, "
+                    "room=%.1f, "
+                    "goal=%.1f, "
                     "state=%s, "
                     "pause=%d, "
-                    "uptime=%s\n",
+                    "uptime='%s'\n",
                     shared__current_temp,
-                    read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
+                    ROOM_TEMP(read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL)),
                     shared__goal_temp,
-                    shared__hot_range,
-                    shared__cool_range,
                     shared__state == WAIT ? "off" :
                         (shared__state == HEAT ? "heating" : "cooling"),
                     g_is_paused,
                     get_timestamp_str());
+}
+
+static int config_fun(__unused const char *arg, char *response_buf) {
+    t_ctrl_temp_conf *conf = get_ctrl_temp_conf();
+
+    return snprintf(response_buf, RESPONSE_LEN_MAX,
+                    "goal=%d, "
+                    "hot_range=%.1f, "
+                    "cool_range=%.1f, "
+                    "cooling_start=%.1f, "
+                    "cooling_stop=%.1f, "
+                    "heating_start=%.1f, "
+                    "heating_stop=%.1f\n",
+                    shared__goal_temp,
+                    shared__hot_range,
+                    shared__cool_range,
+                    conf->cooling_start,
+                    conf->cooling_stop,
+                    conf->heating_start,
+                    conf->heating_stop);
 }
 
 static int goal_fun(const char *arg, char *response_buf) {
@@ -110,12 +127,13 @@ bool is_udp_asking_pause() {
     return g_is_paused;
 }
 
-#define MAX_CMD 8
+#define MAX_CMD 9
 #define CMD_LEN_MAX 16
 
 char cmd_list[MAX_CMD][CMD_LEN_MAX] =  {
     "help",
     "status",
+    "config",
     "goal",
     "cool_range",
     "hot_range",
@@ -127,6 +145,7 @@ char cmd_list[MAX_CMD][CMD_LEN_MAX] =  {
 t_cmd_callback *cmd_fun[MAX_CMD] =  {
     help_fun,
     status_fun,
+    config_fun,
     goal_fun,
     cool_range_fun,
     hot_range_fun,

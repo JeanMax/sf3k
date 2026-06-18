@@ -3,6 +3,14 @@
 
 #include "driver/relay.h"
 
+//TODO: doc
+typedef struct ctrl_temp_conf  t_ctrl_temp_conf;
+struct ctrl_temp_conf {
+    float cooling_start;
+    float cooling_stop ;
+    float heating_start;
+    float heating_stop;
+};
 
 //TODO: doc
 #define HYSTE_DEFAULT_HOT_RANGE 1.6
@@ -11,6 +19,9 @@
 //TODO: doc
 #define COOLING_INERTIA_RATIO 0.75
 #define HEATING_INERTIA_RATIO 0.1
+
+// science
+#define ROOM_TEMP(pi_temp) ((pi_temp) - 16)
 
 
 /** @brief  Control the temperature relays.
@@ -27,5 +38,10 @@
 */
 int ctrl_temp(t_relay *hot_relay, t_relay *cool_relay);
 
+
+/** @brief  TODO
+*
+*/
+t_ctrl_temp_conf *get_ctrl_temp_conf(void);
 
 #endif

@@ -104,6 +104,7 @@ static void thermo_task(void *data) {
 }
 
 
+//TODO: merge with the temp_task, so you can act on relay directly after a measure
 static void relay_task(void *data) {
     (void)data;
     vTaskCoreAffinitySet(NULL, 2);
@@ -208,24 +209,27 @@ static void menu_task(void *data) {
 //TODO: move to http_client.c ?
 #define CONTENT_BUF_SIZE 256
 static char *json_encode() {
-    static char json_content[CONTENT_BUF_SIZE];
+    static char json_content[CONTENT_BUF_SIZE] = {0};
 
     snprintf(json_content, CONTENT_BUF_SIZE,
              "{"
              "\"name\": \"SF3K\", "
-             "\"temp\": %.1f, "
              "\"ambient\": %.1f, "
              "\"temp_unit\": \"C\", "
-             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s, pause=%d, uptime=%s\""
+             "\"comment\": \""
+             "temp=%.1f, room=%.1f, state=%s, pause=%d, "
+             "goal=%d, hot_range=%.1f, cool_range=%.1f, uptime=%s"
+             "\""
              "}",
              shared__current_temp,
-             read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
-             shared__goal_temp,
-             shared__hot_range,
-             shared__cool_range,
+             shared__current_temp,
+             ROOM_TEMP(read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL)),
              shared__state == WAIT ? "off" :
                  (shared__state == HEAT ? "heating" : "cooling"),
              is_udp_asking_pause(),
+             shared__goal_temp,
+             shared__hot_range,
+             shared__cool_range,
              get_timestamp_str());
     return json_content;
 }
