@@ -51,7 +51,7 @@ static int config_fun(__unused const char *arg, char *response_buf) {
     t_ctrl_temp_conf *conf = get_ctrl_temp_conf();
 
     return snprintf(response_buf, RESPONSE_LEN_MAX,
-                    "goal=%d, "
+                    "goal=%.1f, "
                     "hot_range=%.1f, "
                     "cool_range=%.1f, "
                     "cooling_start=%.1f, "
@@ -68,14 +68,14 @@ static int config_fun(__unused const char *arg, char *response_buf) {
 }
 
 static int goal_fun(const char *arg, char *response_buf) {
-    int old = shared__goal_temp;
-    int new;
+    float old = shared__goal_temp;
+    float new;
 
-    int ret = sscanf(arg, "%d", &new);
+    int ret = sscanf(arg, "%f", &new);
     if (ret > 0) {
         shared__goal_temp = new;
         save_persistent_config();
-        return sprintf(response_buf, "goal=%d (prev=%d)\n", new, old);
+        return sprintf(response_buf, "goal=%.1f (prev=%.1f)\n", new, old);
     }
     return sprintf(response_buf, "goal: invalid arg '%s'\n", arg);
 }

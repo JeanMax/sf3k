@@ -37,7 +37,7 @@
 
 //TODO: move these
 volatile float shared__current_temp = -42;
-volatile int shared__goal_temp = 0;
+volatile float shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
@@ -197,7 +197,7 @@ static void menu_task(void *data) {
 
     while (42) {
         menu_refresh();  // TODO: would make more sense to call from temp thread
-        LOG_INFO("Goal: %d°C", shared__goal_temp);
+        LOG_INFO("Goal: %.1f°C", shared__goal_temp);
         SLEEP_MS(REFRESH_DELAY_MS);
     }
 
@@ -218,7 +218,7 @@ static char *json_encode() {
              "\"temp_unit\": \"C\", "
              "\"comment\": \""
              "temp=%.1f, room=%.1f, state=%s, pause=%d, "
-             "goal=%d, hot_range=%.1f, cool_range=%.1f, uptime=%s"
+             "goal=%.1f, hot_range=%.1f, cool_range=%.1f, uptime=%s"
              "\""
              "}",
              shared__current_temp,

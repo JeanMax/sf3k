@@ -12,7 +12,7 @@ enum state {
 
 //TODO: doc
 extern volatile float shared__current_temp;
-extern volatile int shared__goal_temp;
+extern volatile float shared__goal_temp;
 extern volatile e_state shared__state;
 
 extern volatile float shared__hot_range;

@@ -10,7 +10,7 @@
 
 inline int refresh_base_goal_temp() {
     char temp_str[SCREEN_STR_LEN_MAX + 1] = {0};
-    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, "goal:%3d", shared__goal_temp);
+    snprintf(temp_str, SCREEN_STR_LEN_MAX + 1, "goal:%3d", (int)shared__goal_temp);  //TODO: not an int anymore
     return oled_display_string(temp_str, 3, 0, 0);
 }
 
@@ -53,7 +53,7 @@ inline int refresh_set_goal(int tmp_goal) {
 
 int display_set_goal_screen() {
     return refresh_base_state()
-        || refresh_set_goal(shared__goal_temp)
+        || refresh_set_goal((int)shared__goal_temp)
         || oled_display_string("new goal", 3, 0, 0);
 }
 
