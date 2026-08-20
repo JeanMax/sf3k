@@ -36,21 +36,21 @@ static int handle_temperature_relays(e_state requested_state,
             + switch_relay(cool_relay, false);
 
     } else if (requested_state == HEAT) {
+        ret = switch_relay(cool_relay, false);
         if (NOW() - cool_relay->last_off_sec < DISABLE_OPPOSITE_RELAY_DELAY_SEC) {
             LOG_WARNING("Trying to heat to soon after cooling, debounce");
-            return 0;
+            return ret;
         }
-        ret = switch_relay(cool_relay, false);
         if (!ret) {
             ret = switch_relay(hot_relay, true);
         }
 
     } else if (requested_state == COOL) {
+        ret = switch_relay(hot_relay, false);
         if (NOW() - hot_relay->last_off_sec < DISABLE_OPPOSITE_RELAY_DELAY_SEC) {
             LOG_WARNING("Trying to cool to soon after heating, debounce");
-            return 0;
+            return ret;
         }
-        ret = switch_relay(hot_relay, false);
         if (!ret) {
             ret = switch_relay(cool_relay, true);
         }
