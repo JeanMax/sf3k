@@ -11,7 +11,7 @@ extern void *ADDR_PERSISTENT;
 
 typedef struct persistent_conf  t_persistent_conf;
 struct persistent_conf {
-    int goal_temp;
+    float goal_temp;
     float hot_range;
     float cool_range;
 };

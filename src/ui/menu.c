@@ -16,7 +16,7 @@
 
 volatile e_location g_loc = BASE;
 volatile bool g_need_save = false;
-volatile int g_tmp_goal_temp = 0;
+volatile float g_tmp_goal_temp = 0;
 volatile float g_tmp_hot_range = 0;
 volatile float g_tmp_cool_range = 0;
 

@@ -122,7 +122,7 @@ int dht_read(float *temperature, float *humidity, uint8_t dht_pin) {
         if (TEMP_OK(*temperature) && HYGRO_OK(*humidity)) {
             return DHT_SUCCESS;
         }
-        LOG_ERROR("DHT invalid"); /* DEBUG */
+        LOG_ERROR("DHT invalid: %.2f°C %dRH", *temperature, (int)*humidity); /* DEBUG */
         LOG_DEBUG("DHT Data: 0x%x 0x%x 0x%x 0x%x 0x%x\n",
                   data[0], data[1], data[2], data[3], data[4]); /* DEBUG */
         return DHT_ERROR_INVALID;

@@ -37,7 +37,7 @@
 
 //TODO: move these
 volatile float shared__current_temp = -42;
-volatile int shared__goal_temp = 0;
+volatile float shared__goal_temp = 0;
 volatile e_state shared__state = WAIT;
 volatile float shared__hot_range = HYSTE_DEFAULT_HOT_RANGE;
 volatile float shared__cool_range = HYSTE_DEFAULT_COOL_RANGE;
@@ -64,6 +64,7 @@ static int wait_for_usb(int timeout_ms) {
 ////////////////////////////////////////////////////////////////////////////////
 
 
+#define DHT_TEMP_CORRECTION 0.4
 
 static void thermo_task(void *data) {
     (void)data;
@@ -76,17 +77,24 @@ static void thermo_task(void *data) {
     float tmp_temp = -42;
     float tmp_hum = -42;
     int ret = 0;
+    int fail = 0;
 
     while (42) {
         /* ret = max6675_get_temp(&conf, &tmp_temp); */
         ret = dht_read(&tmp_temp, &tmp_hum, DHT_GPIO);
         if (!ret) {
+            tmp_temp += DHT_TEMP_CORRECTION;
             add_temp_to_history(tmp_temp);
             shared__current_temp = get_mean_temp();
-            LOG_INFO("Temp: %.1f°C - Mean: %.2f°C", tmp_temp, shared__current_temp);
+            LOG_INFO("Temp: %.1f - Mean: %.2f", tmp_temp, shared__current_temp);
             LOG_DEBUG("Humidity: %d%%", (int)tmp_hum);
+            fail = 0;
         } else {
             LOG_WARNING("NO TEMP: %d", ret);
+            fail++;
+            if (fail > MAX_TEMP_HISTORY) {
+                panic("NO TEMP!");
+            }
         }
         SLEEP_MS(DHT_READ_DELAY_MS);
     }
@@ -96,6 +104,7 @@ static void thermo_task(void *data) {
 }
 
 
+//TODO: merge with the temp_task, so you can act on relay directly after a measure
 static void relay_task(void *data) {
     (void)data;
     vTaskCoreAffinitySet(NULL, 2);
@@ -188,7 +197,7 @@ static void menu_task(void *data) {
 
     while (42) {
         menu_refresh();  // TODO: would make more sense to call from temp thread
-        LOG_INFO("Goal: %d°C", shared__goal_temp);
+        LOG_INFO("Goal: %.1f°C", shared__goal_temp);
         SLEEP_MS(REFRESH_DELAY_MS);
     }
 
@@ -200,24 +209,27 @@ static void menu_task(void *data) {
 //TODO: move to http_client.c ?
 #define CONTENT_BUF_SIZE 256
 static char *json_encode() {
-    static char json_content[CONTENT_BUF_SIZE];
+    static char json_content[CONTENT_BUF_SIZE] = {0};
 
     snprintf(json_content, CONTENT_BUF_SIZE,
              "{"
              "\"name\": \"SF3K\", "
-             "\"temp\": %.1f, "
              "\"ambient\": %.1f, "
              "\"temp_unit\": \"C\", "
-             "\"comment\": \"goal=%d, hot_range=%.1f, cool_range=%.1f, state=%s, pause=%d, uptime=%s\""
+             "\"comment\": \""
+             "temp=%.1f, room=%.1f, state=%s, pause=%d, "
+             "goal=%.1f, hot_range=%.1f, cool_range=%.1f, uptime=%s"
+             "\""
              "}",
              shared__current_temp,
-             read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL),
-             shared__goal_temp,
-             shared__hot_range,
-             shared__cool_range,
+             shared__current_temp,
+             ROOM_TEMP(read_onboard_temperature(INTERNAL_TEMP_ADC_CHANNEL)),
              shared__state == WAIT ? "off" :
                  (shared__state == HEAT ? "heating" : "cooling"),
              is_udp_asking_pause(),
+             shared__goal_temp,
+             shared__hot_range,
+             shared__cool_range,
              get_timestamp_str());
     return json_content;
 }
